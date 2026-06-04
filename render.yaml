@@ -51,7 +51,4 @@ services:
     startCommand: npm run start
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
-        fromService:
-          name: skillbridge-backend
-          type: web
-          property: host
+        sync: false # Must be filled in manually with the public URL of the backend (e.g. https://skillbridge-backend-pgaz.onrender.com)
