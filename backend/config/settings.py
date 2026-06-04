@@ -14,7 +14,12 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-0!tlypz(i9m-_=umm+ego
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Host definitions
-ALLOWED_HOSTS = config('DJANGO_ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = [
+    host.replace('*.', '.') if host.startswith('*.') else host
+    for host in config('DJANGO_ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+]
+if '.onrender.com' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('.onrender.com')
 
 # Application definition
 INSTALLED_APPS = [
