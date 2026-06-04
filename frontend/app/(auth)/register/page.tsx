@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { requestOtp } from "@/lib/api";
 import {
-  User, Phone, ArrowRight, AlertTriangle, CheckCircle2,
+  User, Mail, Phone, ArrowRight, AlertTriangle, CheckCircle2,
   Sparkles, Shield, Briefcase, Star, UserCheck
 } from "lucide-react";
 
@@ -16,6 +16,7 @@ function RegisterContent() {
 
   const [role, setRole] = useState<"customer" | "worker">(defaultRole);
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,23 +30,23 @@ function RegisterContent() {
       setError("Please enter your full name (at least 2 characters).");
       return;
     }
-    if (phone.length < 10) {
-      setError("Please enter a valid 10–11 digit Nigerian phone number.");
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
     setLoading(true);
     setError("");
     setSuccess("");
     try {
-      const res = await requestOtp(phone);
-      // Store details for the verify step to pass to the backend
+      const res = await requestOtp(email, phone || undefined);
+      localStorage.setItem("sb_temp_email", email);
       localStorage.setItem("sb_temp_phone", phone);
       localStorage.setItem("sb_temp_name", fullName.trim());
       localStorage.setItem("sb_temp_role", role);
-      setSuccess(res.dev_otp ? `OTP sent! (dev: ${res.dev_otp})` : "OTP sent to your phone number.");
+      setSuccess(res.dev_otp ? `OTP sent! (dev: ${res.dev_otp})` : `Verification code sent to ${email}`);
       setTimeout(() => router.push("/verify"), 1000);
     } catch {
-      setError("Could not send OTP. Please check that the backend is running.");
+      setError("Could not send OTP. Please check your email and try again.");
     } finally {
       setLoading(false);
     }
@@ -204,9 +205,29 @@ function RegisterContent() {
               </div>
             </div>
 
-            {/* Phone */}
+            {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 block">Phone Number</label>
+              <label className="text-xs font-bold text-slate-700 block">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                <input
+                  id="email-register-input"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-white py-4 pl-11 pr-4 text-sm font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium">We&apos;ll send a one-time code to verify your email.</p>
+            </div>
+
+            {/* Phone (optional) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Phone Number <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
               <div className="relative flex items-center">
                 <div className="absolute left-0 flex items-center h-full pl-4">
                   <span className="text-xs font-black text-slate-500 border-r border-slate-200 pr-3">+234</span>
@@ -219,14 +240,10 @@ function RegisterContent() {
                   onChange={e => setPhone(cleanPhone(e.target.value))}
                   placeholder="080 1234 5678"
                   maxLength={11}
-                  required
                   className="w-full rounded-xl border border-slate-200 bg-white py-4 pl-16 pr-4 text-sm font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
                 />
                 <Phone className="absolute right-4 h-4 w-4 text-slate-300" />
               </div>
-              <p className="text-[10px] text-slate-400 font-medium">
-                We&apos;ll send a one-time code to verify your number.
-              </p>
             </div>
 
             {/* Error / success */}
@@ -254,13 +271,13 @@ function RegisterContent() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || !fullName.trim() || phone.length < 10}
+              disabled={loading || !fullName.trim() || !email}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary-dark disabled:opacity-50 py-4 text-sm font-black text-white shadow-lg shadow-primary/20 transition-all"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Sending OTP...
+                  Sending Code...
                 </span>
               ) : (
                 <>Create Account &amp; Verify <ArrowRight className="h-4 w-4" /></>

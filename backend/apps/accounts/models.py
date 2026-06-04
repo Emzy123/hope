@@ -28,7 +28,7 @@ class User(Document):
 
     meta = {
         "collection": "users",
-        "indexes": ["phone", "role"],
+        "indexes": ["phone", "role", "email"],
     }
 
     def save(self, *args, **kwargs):
@@ -37,7 +37,12 @@ class User(Document):
 
 
 class OTPCode(Document):
-    phone = StringField(required=True, max_length=20)
+    """
+    Stores pending OTP codes. Keyed by email (primary) with phone as extra context.
+    MongoDB TTL index auto-deletes expired documents.
+    """
+    email = EmailField(required=True)
+    phone = StringField(max_length=20)       # kept for backwards compat / audit
     code = StringField(required=True, max_length=6)
     attempts = IntField(default=0)
     expires_at = DateTimeField(required=True)
@@ -46,16 +51,18 @@ class OTPCode(Document):
     meta = {
         "collection": "otp_codes",
         "indexes": [
+            "email",
             "phone",
             {"fields": ["expires_at"], "expireAfterSeconds": 0},
         ],
     }
 
     @classmethod
-    def create_code(cls, phone, code):
-        cls.objects(phone=phone).delete()
+    def create_code(cls, email, code, phone=None):
+        cls.objects(email=email).delete()
         return cls(
-            phone=phone,
+            email=email,
+            phone=phone or "",
             code=code,
             expires_at=datetime.utcnow() + timedelta(minutes=10),
         ).save()

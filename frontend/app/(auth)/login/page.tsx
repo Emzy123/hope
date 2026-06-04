@@ -4,35 +4,34 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { requestOtp } from "@/lib/api";
-import { Phone, ArrowRight, AlertTriangle, CheckCircle2, Sparkles, Shield, Star, Users } from "lucide-react";
+import { Mail, ArrowRight, AlertTriangle, CheckCircle2, Sparkles, Shield, Star, Users } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const cleanPhone = (val: string) => val.replace(/\D/g, "").slice(0, 11);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 10) {
-      setError("Please enter a valid 10–11 digit Nigerian phone number.");
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
     setLoading(true);
     setError("");
     setSuccess("");
     try {
-      const res = await requestOtp(phone);
-      localStorage.setItem("sb_temp_phone", phone);
+      const res = await requestOtp(email);
+      localStorage.setItem("sb_temp_email", email);
       localStorage.removeItem("sb_temp_name");
       localStorage.removeItem("sb_temp_role");
-      setSuccess(res.dev_otp ? `OTP sent! (dev code: ${res.dev_otp})` : "OTP sent to your phone.");
+      localStorage.removeItem("sb_temp_phone");
+      setSuccess(res.dev_otp ? `OTP sent! (dev code: ${res.dev_otp})` : `Verification code sent to ${email}`);
       setTimeout(() => router.push("/verify"), 1000);
     } catch {
-      setError("Could not send OTP. Make sure the backend is running, or check your phone number.");
+      setError("Could not send OTP. Please check your email address.");
     } finally {
       setLoading(false);
     }
@@ -121,30 +120,25 @@ export default function LoginPage() {
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Sign in to your account</h1>
             <p className="text-sm text-slate-500 font-medium mt-1.5">
-              Enter your phone number and we&apos;ll send you a verification code.
+              Enter your email and we&apos;ll send you a verification code.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Phone input */}
+            {/* Email input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 block">Phone Number</label>
-              <div className="relative flex items-center">
-                <div className="absolute left-0 flex items-center h-full pl-4">
-                  <span className="text-xs font-black text-slate-500 border-r border-slate-200 pr-3">+234</span>
-                </div>
+              <label className="text-xs font-bold text-slate-700 block">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
                 <input
-                  id="phone-input"
-                  type="tel"
-                  inputMode="numeric"
-                  value={phone}
-                  onChange={e => setPhone(cleanPhone(e.target.value))}
-                  placeholder="080 1234 5678"
-                  maxLength={11}
+                  id="email-input"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
-                  className="w-full rounded-xl border border-slate-200 bg-white py-4 pl-16 pr-4 text-sm font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-4 pl-11 pr-4 text-sm font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
                 />
-                <Phone className="absolute right-4 h-4.5 w-4.5 text-slate-300" />
               </div>
             </div>
 
@@ -165,13 +159,13 @@ export default function LoginPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || phone.length < 10}
+              disabled={loading || !email}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary-dark disabled:opacity-50 py-4 text-sm font-black text-white shadow-lg shadow-primary/20 transition-all"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Sending OTP...
+                  Sending Code...
                 </span>
               ) : (
                 <>Send Verification Code <ArrowRight className="h-4 w-4" /></>

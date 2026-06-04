@@ -88,17 +88,17 @@ export async function getWorkers() {
   return apiFetch<ApiList<Worker>>("/api/v1/workers/");
 }
 
-export async function requestOtp(phone: string) {
+export async function requestOtp(email: string, phone?: string) {
   return apiFetch<{ detail: string; dev_otp?: string }>("/api/v1/auth/request-otp/", {
     method: "POST",
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ email, phone }),
   });
 }
 
-export async function verifyOtp(phone: string, code: string, fullName?: string, role?: string) {
+export async function verifyOtp(email: string, code: string, fullName?: string, role?: string, phone?: string) {
   return apiFetch<{ user: User }>("/api/v1/auth/verify-otp/", {
     method: "POST",
-    body: JSON.stringify({ phone, code, full_name: fullName, role }),
+    body: JSON.stringify({ email, code, full_name: fullName, role, phone }),
   });
 }
 

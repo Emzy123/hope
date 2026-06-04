@@ -2,6 +2,7 @@ import random
 import secrets
 import re
 import json
+import hashlib
 from datetime import datetime
 from django.conf import settings
 from django.http import JsonResponse
@@ -14,6 +15,7 @@ from admin_panel.models import log_admin_action
 
 
 PHONE_RE = re.compile(r"^(?:\+234|0)[789][01]\d{8}$")
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def normalize_phone(phone):
@@ -49,30 +51,33 @@ def request_otp(request):
         return JsonResponse({"detail": "Method not allowed."}, status=405)
 
     data = request_data(request)
-    phone = normalize_phone(data.get("phone"))
-    if not PHONE_RE.match(phone):
-        return JsonResponse({"detail": "Enter a valid Nigerian phone number."}, status=400)
+    email = str(data.get("email") or "").strip().lower()
+    phone = normalize_phone(data.get("phone") or "")
 
-    # Throttling to prevent OTP flood
-    existing = OTPCode.objects(phone=phone).first()
+    if not email or not EMAIL_RE.match(email):
+        return JsonResponse({"detail": "Enter a valid email address."}, status=400)
+
+    # Throttle: one OTP per email per 60 seconds
+    existing = OTPCode.objects(email=email).first()
     if existing and (datetime.utcnow() - existing.created_at).total_seconds() < 60:
-        return JsonResponse({"detail": "Please wait 60 seconds before requesting a new verification code."}, status=429)
+        return JsonResponse({"detail": "Please wait 60 seconds before requesting a new code."}, status=429)
 
     code = "123456" if settings.DEBUG else f"{secrets.randbelow(1000000):06d}"
-    OTPCode.create_code(phone, code)
+    # Resolve the display name from existing user or fall back to 'there'
+    existing_user = User.objects(email=email).first()
+    display_name = (existing_user.full_name if existing_user else "") or data.get("full_name", "") or "there"
+    OTPCode.create_code(email=email, code=code, phone=phone if PHONE_RE.match(phone) else None)
 
     if not settings.DEBUG:
-        # Dispatch OTP via live Termii SMS
+        import logging
+        _log = logging.getLogger(__name__)
         try:
-            from accounts.sms_utils import send_otp_sms
-            import logging
-            _log = logging.getLogger(__name__)
-            sms_ok = send_otp_sms(phone, code)
-            if not sms_ok:
-                _log.error("OTP SMS delivery failed for %s — Termii rejected both channels.", phone)
+            from accounts.email_utils import send_otp_email
+            ok = send_otp_email(email, code, full_name=str(display_name))
+            if not ok:
+                _log.error("OTP email delivery failed for %s via Brevo.", email)
         except Exception as exc:
-            import logging
-            logging.getLogger(__name__).error("OTP SMS exception for %s: %s", phone, exc)
+            _log.error("OTP email exception for %s: %s", email, exc)
 
     response = {"detail": "OTP sent."}
     if settings.DEBUG:
@@ -86,19 +91,23 @@ def verify_otp(request):
         return JsonResponse({"detail": "Method not allowed."}, status=405)
 
     data = request_data(request)
-    phone = normalize_phone(data.get("phone"))
+    email = str(data.get("email") or "").strip().lower()
     code = str(data.get("code") or "").strip()
     full_name = str(data.get("full_name") or "").strip()
     role = str(data.get("role") or "customer").strip()
+    phone = normalize_phone(data.get("phone") or "")
 
-    otp = OTPCode.objects(phone=phone).first()
+    if not email or not EMAIL_RE.match(email):
+        return JsonResponse({"detail": "A valid email is required."}, status=400)
+
+    otp = OTPCode.objects(email=email).first()
     valid_dev_code = settings.DEBUG and code == "123456"
     valid_saved_code = otp and otp.code == code and otp.expires_at > datetime.utcnow()
 
     if not valid_dev_code and not valid_saved_code:
         if otp:
             otp.update(inc__attempts=1)
-            otp = OTPCode.objects(phone=phone).first()
+            otp = OTPCode.objects(email=email).first()
             if otp and (otp.attempts or 0) >= 5:
                 otp.delete()
                 return JsonResponse({"detail": "Too many failed attempts. This OTP is now invalid."}, status=400)
@@ -107,17 +116,31 @@ def verify_otp(request):
     if role not in User.ROLE_CHOICES:
         return JsonResponse({"detail": "Invalid role."}, status=400)
 
-    user = User.objects(phone=phone).first()
+    # Look up user by email first, fall back to phone for existing accounts
+    user = User.objects(email=email).first()
+    if user is None and PHONE_RE.match(phone):
+        user = User.objects(phone=phone).first()
+
     if user is None:
-        # Brand-new user — is_onboarded starts False
-        user = User(phone=phone, full_name=full_name, role=role, is_verified=True, is_onboarded=False).save()
+        # Brand-new user
+        safe_phone = phone if PHONE_RE.match(phone) else f"e_{hashlib.md5(email.encode()).hexdigest()[:15]}"
+        user = User(
+            phone=safe_phone,
+            email=email,
+            full_name=full_name,
+            role=role,
+            is_verified=True,
+            is_onboarded=False,
+        ).save()
     else:
         if full_name:
             user.full_name = full_name
+        if not user.email:
+            user.email = email
         user.is_verified = True
         user.save()
 
-    OTPCode.objects(phone=phone).delete()
+    OTPCode.objects(email=email).delete()
     refresh = RefreshToken()
     refresh["user_id"] = str(user.id)
     refresh["phone"] = user.phone

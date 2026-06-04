@@ -178,4 +178,7 @@ PAYSTACK_SECRET_KEY = config('PAYSTACK_SECRET_KEY', default='sk_test_sample')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-
+# --- Brevo (Email OTP) Configuration ---
+BREVO_API_KEY = config('BREVO_API_KEY', default='')
+BREVO_SENDER_EMAIL = config('BREVO_SENDER_EMAIL', default='noreply@skillbridge.ng')
+BREVO_SENDER_NAME = config('BREVO_SENDER_NAME', default='SkillBridge')

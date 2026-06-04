@@ -10,6 +10,7 @@ import Link from "next/link";
 export default function VerifyPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("customer");
   const [fullName, setFullName] = useState("");
@@ -25,13 +26,15 @@ export default function VerifyPage() {
   const code = digits.join("");
 
   useEffect(() => {
-    const tempPhone = localStorage.getItem("sb_temp_phone");
+    const tempEmail = localStorage.getItem("sb_temp_email");
+    const tempPhone = localStorage.getItem("sb_temp_phone") || "";
     const tempRole = localStorage.getItem("sb_temp_role");
     const tempName = localStorage.getItem("sb_temp_name");
 
-    if (!tempPhone) {
+    if (!tempEmail) {
       router.replace("/login");
     } else {
+      setEmail(tempEmail);
       setPhone(tempPhone);
       setRole(tempRole || "customer");
       setFullName(tempName || "");
@@ -124,7 +127,7 @@ export default function VerifyPage() {
     setSuccessMsg("");
 
     try {
-      const res = await verifyOtp(phone, code, fullName || undefined, role || undefined);
+      const res = await verifyOtp(email, code, fullName || undefined, role || undefined, phone || undefined);
       
       const loggedUser = {
         id: res.user.id,
@@ -136,6 +139,7 @@ export default function VerifyPage() {
 
       setSuccessMsg("Successfully verified!");
       
+      localStorage.removeItem("sb_temp_email");
       localStorage.removeItem("sb_temp_phone");
       localStorage.removeItem("sb_temp_role");
       localStorage.removeItem("sb_temp_name");
@@ -145,7 +149,7 @@ export default function VerifyPage() {
       }, 1000);
 
     } catch (err: any) {
-      setErrorMsg("Incorrect code or code has expired. Use '123456' for sandbox bypass.");
+      setErrorMsg("Incorrect code or code has expired.");
     } finally {
       setLoading(false);
     }
@@ -163,24 +167,18 @@ export default function VerifyPage() {
     setErrorMsg("");
     setSuccessMsg("");
     try {
-      const res = await requestOtp(phone);
-      setSuccessMsg(res.dev_otp ? `OTP Resent! Dev Code: ${res.dev_otp}` : "OTP Resent successfully!");
+      const res = await requestOtp(email, phone || undefined);
+      setSuccessMsg(res.dev_otp ? `Code Resent! Dev Code: ${res.dev_otp}` : `Code resent to ${email}`);
       setCooldown(60);
     } catch {
       setErrorMsg("Resend failed. Try again.");
     }
   };
 
-  const formatPhoneForDisplay = (phoneNum: string) => {
-    if (!phoneNum) return "";
-    let clean = phoneNum.trim();
-    if (clean.startsWith("+")) {
-      return `${clean.slice(0, 4)} ${clean.slice(4, 7)} *** ${clean.slice(-4)}`;
-    }
-    if (clean.length === 11) {
-      return `${clean.slice(0, 4)} *** ${clean.slice(-4)}`;
-    }
-    return clean;
+  const maskEmail = (e: string) => {
+    if (!e) return "";
+    const [user, domain] = e.split("@");
+    return `${user.slice(0, 2)}***@${domain}`;
   };
 
   return (
@@ -192,7 +190,7 @@ export default function VerifyPage() {
         className="inline-flex items-center gap-1 text-[10px] font-black text-slate-400 hover:text-primary transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        Change Phone Number
+        Change Email
       </Link>
 
       <div className="text-center space-y-3">
@@ -201,7 +199,9 @@ export default function VerifyPage() {
         </div>
         <div className="space-y-1">
           <h2 className="text-xl font-black text-slate-800">Enter OTP Code</h2>
-          <p className="text-[10px] font-semibold text-slate-500">We sent a 6-digit confirmation pin to {formatPhoneForDisplay(phone)}</p>
+          <p className="text-[10px] font-semibold text-slate-500">
+            We sent a 6-digit code to <span className="text-primary font-black">{email}</span>
+          </p>
         </div>
       </div>
 
