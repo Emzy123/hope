@@ -1,0 +1,57 @@
+services:
+  # 1. Backend Service (Django with Mongoengine)
+  - type: web
+    name: skillbridge-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ENVIRONMENT
+        value: production
+      - key: DJANGO_ALLOWED_HOSTS
+        value: localhost,127.0.0.1,*.onrender.com
+      - key: JWT_COOKIE_SECURE
+        value: "True"
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://skillbridge-frontend.onrender.com # Render will resolve this or you can update after deploying the frontend
+      # MongoDB database connection (user needs to provide a cloud MongoDB URI like Atlas)
+      - key: MONGODB_URI
+        sync: false
+      # Cloudinary credentials for avatar/image uploads
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # SMS (Termii) Configuration
+      - key: TERMII_API_KEY
+        sync: false
+      - key: TERMII_SENDER_ID
+        sync: false
+      - key: TERMII_BASE_URL
+        value: https://api.ng.termii.com
+      # Payment (Paystack) Configuration
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+
+  # 2. Frontend Service (Next.js Node Web Service)
+  - type: web
+    name: skillbridge-frontend
+    env: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          name: skillbridge-backend
+          type: web
+          property: host
