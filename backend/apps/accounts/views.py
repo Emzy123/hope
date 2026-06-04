@@ -65,9 +65,14 @@ def request_otp(request):
         # Dispatch OTP via live Termii SMS
         try:
             from accounts.sms_utils import send_otp_sms
-            send_otp_sms(phone, code)
-        except Exception:
-            pass  # Never block login flow due to SMS failure
+            import logging
+            _log = logging.getLogger(__name__)
+            sms_ok = send_otp_sms(phone, code)
+            if not sms_ok:
+                _log.error("OTP SMS delivery failed for %s — Termii rejected both channels.", phone)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("OTP SMS exception for %s: %s", phone, exc)
 
     response = {"detail": "OTP sent."}
     if settings.DEBUG:
