@@ -180,14 +180,14 @@ def audit_log_list(request):
     for log in logs:
         try:
             admin_name = log.admin.full_name if log.admin else "System"
-            admin_phone = log.admin.phone if log.admin else ""
+            admin_email = log.admin.email if log.admin else ""
         except Exception:
             admin_name = "Deleted Admin"
-            admin_phone = ""
+            admin_email = ""
         results.append({
             "id": str(log.id),
             "admin_name": admin_name,
-            "admin_phone": admin_phone,
+            "admin_email": admin_email,
             "action": log.action,
             "details": log.details,
             "created_at": log.created_at.isoformat() if log.created_at else None,

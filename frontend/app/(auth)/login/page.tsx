@@ -27,7 +27,6 @@ export default function LoginPage() {
       localStorage.setItem("sb_temp_email", email);
       localStorage.removeItem("sb_temp_name");
       localStorage.removeItem("sb_temp_role");
-      localStorage.removeItem("sb_temp_phone");
       setSuccess(res.dev_otp ? `OTP sent! (dev code: ${res.dev_otp})` : `Verification code sent to ${email}`);
       setTimeout(() => router.push("/verify"), 1000);
     } catch {

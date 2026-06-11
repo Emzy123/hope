@@ -52,7 +52,8 @@ export type Booking = {
 
 export type User = {
   id: string;
-  phone: string;
+  email: string;
+  phone?: string | null;
   full_name: string;
   role: string;
   is_onboarded: boolean;
@@ -88,17 +89,17 @@ export async function getWorkers() {
   return apiFetch<ApiList<Worker>>("/api/v1/workers/");
 }
 
-export async function requestOtp(email: string, phone?: string) {
+export async function requestOtp(email: string) {
   return apiFetch<{ detail: string; dev_otp?: string }>("/api/v1/auth/request-otp/", {
     method: "POST",
-    body: JSON.stringify({ email, phone }),
+    body: JSON.stringify({ email }),
   });
 }
 
-export async function verifyOtp(email: string, code: string, fullName?: string, role?: string, phone?: string) {
+export async function verifyOtp(email: string, code: string, fullName?: string, role?: string) {
   return apiFetch<{ user: User }>("/api/v1/auth/verify-otp/", {
     method: "POST",
-    body: JSON.stringify({ email, code, full_name: fullName, role, phone }),
+    body: JSON.stringify({ email, code, full_name: fullName, role }),
   });
 }
 
@@ -177,10 +178,10 @@ export async function logoutUser() {
   });
 }
 
-export async function adminLogin(phone: string, password: string) {
+export async function adminLogin(email: string, password: string) {
   return apiFetch<{ user: User }>("/api/v1/auth/admin-login/", {
     method: "POST",
-    body: JSON.stringify({ phone, password }),
+    body: JSON.stringify({ email, password }),
   });
 }
 
@@ -216,17 +217,17 @@ export async function uploadWorkerAvatar(file: File) {
   return response.json() as Promise<{ detail: string; avatar_url: string }>;
 }
 
-export async function requestAdminPasswordReset(phone: string) {
+export async function requestAdminPasswordReset(email: string) {
   return apiFetch<{ detail: string; dev_otp?: string }>("/api/v1/auth/admin-reset-password/request/", {
     method: "POST",
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ email }),
   });
 }
 
-export async function confirmAdminPasswordReset(phone: string, code: string, newPassword: string) {
+export async function confirmAdminPasswordReset(email: string, code: string, newPassword: string) {
   return apiFetch<{ detail: string }>("/api/v1/auth/admin-reset-password/confirm/", {
     method: "POST",
-    body: JSON.stringify({ phone, code, new_password: newPassword }),
+    body: JSON.stringify({ email, code, new_password: newPassword }),
   });
 }
 

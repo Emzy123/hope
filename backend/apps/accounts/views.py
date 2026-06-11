@@ -2,7 +2,6 @@ import random
 import secrets
 import re
 import json
-import hashlib
 from datetime import datetime
 from django.conf import settings
 from django.http import JsonResponse
@@ -28,6 +27,7 @@ def normalize_phone(phone):
 def user_payload(user):
     return {
         "id": str(user.id),
+        "email": user.email,
         "phone": user.phone,
         "full_name": user.full_name,
         "role": user.role,
@@ -52,7 +52,6 @@ def request_otp(request):
 
     data = request_data(request)
     email = str(data.get("email") or "").strip().lower()
-    phone = normalize_phone(data.get("phone") or "")
 
     if not email or not EMAIL_RE.match(email):
         return JsonResponse({"detail": "Enter a valid email address."}, status=400)
@@ -63,10 +62,9 @@ def request_otp(request):
         return JsonResponse({"detail": "Please wait 60 seconds before requesting a new code."}, status=429)
 
     code = "123456" if settings.DEBUG else f"{secrets.randbelow(1000000):06d}"
-    # Resolve the display name from existing user or fall back to 'there'
     existing_user = User.objects(email=email).first()
     display_name = (existing_user.full_name if existing_user else "") or data.get("full_name", "") or "there"
-    OTPCode.create_code(email=email, code=code, phone=phone if PHONE_RE.match(phone) else None)
+    OTPCode.create_code(email=email, code=code)
 
     if not settings.DEBUG:
         import logging
@@ -95,7 +93,6 @@ def verify_otp(request):
     code = str(data.get("code") or "").strip()
     full_name = str(data.get("full_name") or "").strip()
     role = str(data.get("role") or "customer").strip()
-    phone = normalize_phone(data.get("phone") or "")
 
     if not email or not EMAIL_RE.match(email):
         return JsonResponse({"detail": "A valid email is required."}, status=400)
@@ -116,16 +113,10 @@ def verify_otp(request):
     if role not in User.ROLE_CHOICES:
         return JsonResponse({"detail": "Invalid role."}, status=400)
 
-    # Look up user by email first, fall back to phone for existing accounts
     user = User.objects(email=email).first()
-    if user is None and PHONE_RE.match(phone):
-        user = User.objects(phone=phone).first()
 
     if user is None:
-        # Brand-new user
-        safe_phone = phone if PHONE_RE.match(phone) else f"e_{hashlib.md5(email.encode()).hexdigest()[:15]}"
         user = User(
-            phone=safe_phone,
             email=email,
             full_name=full_name,
             role=role,
@@ -135,8 +126,6 @@ def verify_otp(request):
     else:
         if full_name:
             user.full_name = full_name
-        if not user.email:
-            user.email = email
         user.is_verified = True
         user.save()
 
@@ -216,20 +205,22 @@ def auth_me(request):
 def admin_login(request):
     """
     Password-based login exclusively for admin accounts.
-    Accepts: { phone, password }
+    Accepts: { email, password }
     Returns JWT cookies identical to verify_otp on success.
     """
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed."}, status=405)
 
     data = request_data(request)
-    phone = normalize_phone(data.get("phone"))
+    email = str(data.get("email") or "").strip().lower()
     password = str(data.get("password") or "").strip()
 
-    if not phone or not password:
-        return JsonResponse({"detail": "Phone and password are required."}, status=400)
+    if not email or not EMAIL_RE.match(email):
+        return JsonResponse({"detail": "A valid email address is required."}, status=400)
+    if not password:
+        return JsonResponse({"detail": "Email and password are required."}, status=400)
 
-    user = User.objects(phone=phone, role="admin").first()
+    user = User.objects(email=email, role="admin").first()
     if not user or not user.check_password(password):
         return JsonResponse({"detail": "Invalid credentials."}, status=401)
 
@@ -265,38 +256,40 @@ def admin_login(request):
 def admin_reset_password_request(request):
     """
     POST /api/v1/auth/admin-reset-password/request/ — request OTP to reset admin password.
-    Body: { phone }
+    Body: { email }
     """
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed."}, status=405)
 
     data = request_data(request)
-    phone = normalize_phone(data.get("phone"))
+    email = str(data.get("email") or "").strip().lower()
 
-    if not phone:
-        return JsonResponse({"detail": "Phone number is required."}, status=400)
+    if not email or not EMAIL_RE.match(email):
+        return JsonResponse({"detail": "A valid email address is required."}, status=400)
 
-    # Only allow password reset request for active admins
-    user = User.objects(phone=phone, role="admin", is_active=True).first()
+    user = User.objects(email=email, role="admin", is_active=True).first()
     if not user:
-        return JsonResponse({"detail": "No active administrator account with this phone number was found."}, status=404)
+        return JsonResponse({"detail": "No active administrator account with this email address was found."}, status=404)
 
-    # Throttling to prevent flood
-    existing = OTPCode.objects(phone=phone).first()
+    existing = OTPCode.objects(email=email).first()
     if existing and (datetime.utcnow() - existing.created_at).total_seconds() < 60:
         return JsonResponse({"detail": "Please wait 60 seconds before requesting a new verification code."}, status=429)
 
     code = "123456" if settings.DEBUG else f"{random.randint(100000, 999999)}"
-    OTPCode.create_code(phone, code)
+    OTPCode.create_code(email=email, code=code)
 
     if not settings.DEBUG:
+        import logging
+        _log = logging.getLogger(__name__)
         try:
-            from accounts.sms_utils import send_otp_sms
-            send_otp_sms(phone, code)
-        except Exception:
-            pass
+            from accounts.email_utils import send_otp_email
+            ok = send_otp_email(email, code, full_name=user.full_name or "Administrator")
+            if not ok:
+                _log.error("Admin reset OTP email delivery failed for %s via Brevo.", email)
+        except Exception as exc:
+            _log.error("Admin reset OTP email exception for %s: %s", email, exc)
 
-    response = {"detail": "Verification code sent to your registered phone number."}
+    response = {"detail": "Verification code sent to your registered email address."}
     if settings.DEBUG:
         response["dev_otp"] = code
     return JsonResponse(response, status=200)
@@ -306,27 +299,29 @@ def admin_reset_password_request(request):
 def admin_reset_password_confirm(request):
     """
     POST /api/v1/auth/admin-reset-password/confirm/ — verify code and update password.
-    Body: { phone, code, new_password }
+    Body: { email, code, new_password }
     """
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed."}, status=405)
 
     data = request_data(request)
-    phone = normalize_phone(data.get("phone"))
+    email = str(data.get("email") or "").strip().lower()
     code = str(data.get("code") or "").strip()
     new_password = str(data.get("new_password") or "").strip()
 
-    if not phone or not code or not new_password:
-        return JsonResponse({"detail": "Phone, verification code, and new password are required."}, status=400)
+    if not email or not EMAIL_RE.match(email):
+        return JsonResponse({"detail": "A valid email address is required."}, status=400)
+    if not code or not new_password:
+        return JsonResponse({"detail": "Email, verification code, and new password are required."}, status=400)
 
     if len(new_password) < 8:
         return JsonResponse({"detail": "New password must be at least 8 characters long."}, status=400)
 
-    user = User.objects(phone=phone, role="admin", is_active=True).first()
+    user = User.objects(email=email, role="admin", is_active=True).first()
     if not user:
-        return JsonResponse({"detail": "No active administrator account with this phone number was found."}, status=404)
+        return JsonResponse({"detail": "No active administrator account with this email address was found."}, status=404)
 
-    otp = OTPCode.objects(phone=phone).first()
+    otp = OTPCode.objects(email=email).first()
     valid_dev_code = settings.DEBUG and code == "123456"
     valid_saved_code = otp and otp.code == code and otp.expires_at > datetime.utcnow()
 
@@ -336,13 +331,12 @@ def admin_reset_password_confirm(request):
     user.set_password(new_password)
     user.save()
 
-    # Clear OTP
-    OTPCode.objects(phone=phone).delete()
+    OTPCode.objects(email=email).delete()
 
     log_admin_action(
         user,
         "Password Reset",
-        f"Administrator {user.phone} successfully updated their login password."
+        f"Administrator {user.email} successfully updated their login password."
     )
 
     return JsonResponse({"detail": "Your administrative password has been updated successfully."}, status=200)
@@ -391,29 +385,31 @@ def admin_users_list_create(request):
 
     elif request.method == "POST":
         data = request_data(request)
-        phone = normalize_phone(data.get("phone"))
+        phone = normalize_phone(data.get("phone") or "")
         full_name = str(data.get("full_name") or "").strip()
-        email = str(data.get("email") or "").strip()
+        email = str(data.get("email") or "").strip().lower()
         role = str(data.get("role") or "customer").strip().lower()
         password = str(data.get("password") or "").strip()
 
-        if not PHONE_RE.match(phone):
+        if not email or not EMAIL_RE.match(email):
+            return JsonResponse({"detail": "Enter a valid email address."}, status=400)
+
+        if phone and not PHONE_RE.match(phone):
             return JsonResponse({"detail": "Enter a valid Nigerian phone number."}, status=400)
 
         if role not in User.ROLE_CHOICES:
             return JsonResponse({"detail": "Invalid role specified."}, status=400)
 
-        if User.objects(phone=phone).first():
-            return JsonResponse({"detail": "A user with this phone number already exists."}, status=400)
+        if User.objects(email=email).first():
+            return JsonResponse({"detail": "A user with this email address already exists."}, status=400)
 
         user = User(
-            phone=phone,
+            email=email,
+            phone=phone or None,
             full_name=full_name,
-            email=email if email else None,
             role=role,
             is_active=True,
             is_verified=True,
-            # Admin-created users are considered onboarded
             is_onboarded=True,
         )
 
@@ -474,7 +470,7 @@ def admin_users_toggle_active(request, user_id):
     log_admin_action(
         request.skillbridge_user,
         "User Status Toggled",
-        f"Toggled user {user.phone} active status to {user.is_active}"
+        f"Toggled user {user.email} active status to {user.is_active}"
     )
 
     return JsonResponse({

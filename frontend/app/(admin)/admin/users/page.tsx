@@ -111,8 +111,12 @@ export default function AdminUsersDashboard() {
   // Submit Create User Form
   const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPhone.length < 10) {
-      setModalError("Please enter a valid Nigerian phone number.");
+    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      setModalError("Please enter a valid email address.");
+      return;
+    }
+    if (newPhone && newPhone.length < 10) {
+      setModalError("Please enter a valid Nigerian phone number or leave it blank.");
       return;
     }
     if (newRole === "admin" && newPassword.length < 8) {
@@ -130,9 +134,9 @@ export default function AdminUsersDashboard() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: newPhone,
+          phone: newPhone || undefined,
           full_name: newFullName,
-          email: newEmail || undefined,
+          email: newEmail,
           role: newRole,
           password: newRole === "admin" ? newPassword : undefined,
         }),
@@ -301,13 +305,13 @@ export default function AdminUsersDashboard() {
 
                     <div className="flex items-center gap-3 text-[10px] text-slate-400 font-semibold flex-wrap">
                       <span className="flex items-center gap-1">
-                        <Smartphone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                        {u.phone}
+                        <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        {u.email || "No email"}
                       </span>
-                      {u.email && (
+                      {u.phone && (
                         <span className="flex items-center gap-1">
-                          <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          {u.email}
+                          <Smartphone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          {u.phone}
                         </span>
                       )}
                       {u.created_at && (
@@ -407,14 +411,26 @@ export default function AdminUsersDashboard() {
                   />
                 </div>
 
-                {/* Phone */}
+                {/* Email */}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 block uppercase">Phone Number</label>
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. name@domain.com"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-xs font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/5"
+                  />
+                </div>
+
+                {/* Phone (Optional) */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 block uppercase">Phone Number (Optional)</label>
                   <div className="relative flex items-center">
                     <span className="absolute left-3 text-[10px] font-black text-slate-400 border-r border-slate-200 pr-2">+234</span>
                     <input
                       type="tel"
-                      required
                       placeholder="080 1234 5678"
                       value={newPhone}
                       onChange={(e) => setNewPhone(cleanPhone(e.target.value))}
@@ -422,18 +438,6 @@ export default function AdminUsersDashboard() {
                       className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-14 pr-3 text-xs font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/5"
                     />
                   </div>
-                </div>
-
-                {/* Email (Optional) */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 block uppercase">Email (Optional)</label>
-                  <input
-                    type="email"
-                    placeholder="e.g. name@domain.com"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-xs font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/5"
-                  />
                 </div>
 
                 {/* Role selection */}

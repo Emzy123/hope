@@ -17,7 +17,7 @@ import {
 type AuditEntry = {
   id: string;
   admin_name: string;
-  admin_phone: string;
+  admin_email: string;
   action: string;
   details: string;
   created_at: string | null;
@@ -218,9 +218,9 @@ export default function AdminAuditLogPage() {
                             <span className="font-black text-slate-800 block leading-tight">
                               {log.admin_name}
                             </span>
-                            {log.admin_phone && (
+                            {log.admin_email && (
                               <span className="text-[9px] text-slate-400 font-semibold">
-                                {log.admin_phone}
+                                {log.admin_email}
                               </span>
                             )}
                           </div>

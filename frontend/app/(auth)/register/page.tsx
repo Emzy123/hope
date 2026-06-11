@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { requestOtp } from "@/lib/api";
 import {
-  User, Mail, Phone, ArrowRight, AlertTriangle, CheckCircle2,
+  User, Mail, ArrowRight, AlertTriangle, CheckCircle2,
   Sparkles, Shield, Briefcase, Star, UserCheck
 } from "lucide-react";
 
@@ -17,12 +17,9 @@ function RegisterContent() {
   const [role, setRole] = useState<"customer" | "worker">(defaultRole);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
-  const cleanPhone = (v: string) => v.replace(/\D/g, "").slice(0, 11);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,9 +35,8 @@ function RegisterContent() {
     setError("");
     setSuccess("");
     try {
-      const res = await requestOtp(email, phone || undefined);
+      const res = await requestOtp(email);
       localStorage.setItem("sb_temp_email", email);
-      localStorage.setItem("sb_temp_phone", phone);
       localStorage.setItem("sb_temp_name", fullName.trim());
       localStorage.setItem("sb_temp_role", role);
       setSuccess(res.dev_otp ? `OTP sent! (dev: ${res.dev_otp})` : `Verification code sent to ${email}`);
@@ -221,29 +217,6 @@ function RegisterContent() {
                 />
               </div>
               <p className="text-[10px] text-slate-400 font-medium">We&apos;ll send a one-time code to verify your email.</p>
-            </div>
-
-            {/* Phone (optional) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 block">
-                Phone Number <span className="text-slate-400 font-normal">(optional)</span>
-              </label>
-              <div className="relative flex items-center">
-                <div className="absolute left-0 flex items-center h-full pl-4">
-                  <span className="text-xs font-black text-slate-500 border-r border-slate-200 pr-3">+234</span>
-                </div>
-                <input
-                  id="phone-register-input"
-                  type="tel"
-                  inputMode="numeric"
-                  value={phone}
-                  onChange={e => setPhone(cleanPhone(e.target.value))}
-                  placeholder="080 1234 5678"
-                  maxLength={11}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-4 pl-16 pr-4 text-sm font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
-                />
-                <Phone className="absolute right-4 h-4 w-4 text-slate-300" />
-              </div>
             </div>
 
             {/* Error / success */}

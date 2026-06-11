@@ -1,44 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { X, Phone, KeyRound, Sparkles, CheckCircle2, UserCheck } from "lucide-react";
+import { X, Mail, KeyRound, Sparkles, CheckCircle2, UserCheck } from "lucide-react";
 import { requestOtp, verifyOtp } from "@/lib/api";
 
 type OTPModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: (user: { id: string; phone: string; full_name: string; role: string }) => void;
+  onLoginSuccess: (user: { id: string; email: string; phone?: string | null; full_name: string; role: string }) => void;
 };
 
 const preseededAccounts = [
-  { role: "customer", phone: "08033333333", label: "Demo Customer 1 (Active)", desc: "Chioma Okafor" },
-  { role: "customer", phone: "08044444444", label: "Demo Customer 2 (New)", desc: "Ibrahim Musa" },
-  { role: "worker", phone: "08011111111", label: "Demo Worker (Plumber)", desc: "Adewale Plumbing Pro" },
-  { role: "worker", phone: "08022222222", label: "Demo Worker (Electrician)", desc: "Zainab Electricals" },
-  { role: "admin", phone: "08000000000", label: "Demo Platform Admin", desc: "SkillBridge Operations" },
+  { role: "customer", email: "chioma@demo.skillbridge.ng", label: "Demo Customer 1 (Active)", desc: "Chioma Okafor" },
+  { role: "customer", email: "ibrahim@demo.skillbridge.ng", label: "Demo Customer 2 (New)", desc: "Ibrahim Musa" },
+  { role: "worker", email: "adewale@demo.skillbridge.ng", label: "Demo Worker (Plumber)", desc: "Adewale Plumbing Pro" },
+  { role: "worker", email: "zainab@demo.skillbridge.ng", label: "Demo Worker (Electrician)", desc: "Zainab Electricals" },
 ];
 
 export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("customer");
   const [otpCode, setOtpCode] = useState("");
-  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [step, setStep] = useState<"email" | "otp">("email");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  async function handleSendOTP(phoneNum: string, userRole: string, nameInput?: string) {
+  async function handleSendOTP(emailAddress: string, userRole: string) {
     setIsLoading(true);
     setIsError(false);
     setMessage("");
     try {
-      const actualPhone = phoneNum || phone;
-      const actualRole = userRole || role;
-      
-      const res = await requestOtp(actualPhone);
+      const actualEmail = emailAddress || email;
+      const res = await requestOtp(actualEmail);
       setStep("otp");
       setMessage(res.dev_otp ? `OTP Sent! Dev Code: ${res.dev_otp}` : res.detail);
     } catch {
@@ -54,15 +51,15 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
     setIsError(false);
     setMessage("");
     try {
-      const res = await verifyOtp(phone, otpCode, fullName || undefined);
-      // Ensure the returned user has the selected role if new, or merges nicely
+      const res = await verifyOtp(email, otpCode, fullName || undefined, role);
       const loggedUser = {
         id: res.user.id,
+        email: res.user.email,
         phone: res.user.phone,
         full_name: res.user.full_name || fullName || "Demo User",
         role: res.user.role || role,
       };
-      
+
       onLoginSuccess(loggedUser);
       setIsError(false);
       setMessage("Successfully signed in!");
@@ -79,18 +76,18 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
   }
 
   function selectBypass(account: typeof preseededAccounts[number]) {
-    setPhone(account.phone);
+    setEmail(account.email);
     setRole(account.role);
     setFullName(account.desc);
-    handleSendOTP(account.phone, account.role, account.desc);
+    handleSendOTP(account.email, account.role);
   }
 
   function resetForm() {
-    setPhone("");
+    setEmail("");
     setFullName("");
     setRole("customer");
     setOtpCode("");
-    setStep("phone");
+    setStep("email");
     setMessage("");
     setIsError(false);
   }
@@ -98,19 +95,18 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl backdrop-blur-md">
-        
-        {/* Modal Header */}
+
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0f3a22]/10 text-[#0f3a22]">
               <Sparkles className="h-4.5 w-4.5 text-amber-500" />
             </span>
             <div>
-              <h3 className="text-base font-black text-slate-800">Phone-First Authentication</h3>
-              <p className="text-[10px] font-medium text-slate-500">Nigeria&apos;s trusted verification flow</p>
+              <h3 className="text-base font-black text-slate-800">Email Authentication</h3>
+              <p className="text-[10px] font-medium text-slate-500">Verify with a one-time code</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => { onClose(); resetForm(); }}
             className="rounded-xl p-1 text-slate-400 hover:bg-slate-100 transition-colors"
           >
@@ -118,19 +114,18 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
           </button>
         </div>
 
-        {/* Modal Content */}
         <div className="mt-5">
-          {step === "phone" ? (
+          {step === "email" ? (
             <div className="grid gap-4">
               <div>
-                <label className="text-[11px] font-bold text-slate-600 block mb-1.5">Enter Phone Number</label>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1.5">Enter Email Address</label>
                 <div className="relative">
-                  <Phone className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
+                  <Mail className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="08033333333"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
                     className="w-full rounded-2xl border border-slate-200 py-3 pl-10 pr-4 text-sm font-medium outline-none focus:border-[#0f3a22] transition-colors"
                   />
                 </div>
@@ -149,8 +144,8 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
 
               <div>
                 <label className="text-[11px] font-bold text-slate-600 block mb-1.5">Register / Login As</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {["customer", "worker", "admin"].map((r) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {["customer", "worker"].map((r) => (
                     <button
                       key={r}
                       type="button"
@@ -168,14 +163,13 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
               </div>
 
               <button
-                onClick={() => handleSendOTP(phone, role)}
-                disabled={isLoading || !phone}
+                onClick={() => handleSendOTP(email, role)}
+                disabled={isLoading || !email}
                 className="w-full mt-2 rounded-2xl bg-[#0f3a22] py-3.5 text-center text-sm font-bold text-white hover:bg-[#154e2f] shadow-lg shadow-green-900/10 disabled:opacity-60 transition-all"
               >
                 {isLoading ? "Requesting OTP..." : "Send Verification OTP"}
               </button>
 
-              {/* Development Bypass Section */}
               <div className="mt-3 border-t border-dashed border-slate-200 pt-3">
                 <div className="flex items-center gap-1.5 mb-2">
                   <UserCheck className="h-3.5 w-3.5 text-amber-600" />
@@ -184,7 +178,7 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
                 <div className="grid gap-1.5 max-h-36 overflow-y-auto pr-1">
                   {preseededAccounts.map((acct) => (
                     <button
-                      key={acct.phone}
+                      key={acct.email}
                       type="button"
                       onClick={() => selectBypass(acct)}
                       className="flex items-center justify-between text-left rounded-xl border border-amber-200/50 bg-amber-50/50 hover:bg-amber-50 p-2 text-[10px] transition-colors"
@@ -193,7 +187,7 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
                         <strong className="text-slate-700 block font-bold">{acct.label}</strong>
                         <span className="text-slate-500 font-medium">{acct.desc}</span>
                       </div>
-                      <span className="font-mono bg-white border border-amber-100 rounded px-1.5 py-0.5 font-bold text-amber-700">{acct.phone}</span>
+                      <span className="font-mono bg-white border border-amber-100 rounded px-1.5 py-0.5 font-bold text-amber-700">{acct.email}</span>
                     </button>
                   ))}
                 </div>
@@ -205,8 +199,8 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
                 <KeyRound className="h-6 w-6" />
               </div>
               <div>
-                <h4 className="text-sm font-black text-slate-800">Verify Phone Number</h4>
-                <p className="text-[11px] font-semibold text-slate-500 mt-1">We sent an OTP code to {phone}</p>
+                <h4 className="text-sm font-black text-slate-800">Verify Email Address</h4>
+                <p className="text-[11px] font-semibold text-slate-500 mt-1">We sent an OTP code to {email}</p>
               </div>
 
               <div className="relative mt-2">
@@ -222,7 +216,7 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
 
               <div className="flex gap-2.5 mt-2">
                 <button
-                  onClick={() => setStep("phone")}
+                  onClick={() => setStep("email")}
                   className="w-1/3 rounded-2xl border border-slate-200 py-3.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   Back
@@ -238,7 +232,6 @@ export function OTPModal({ isOpen, onClose, onLoginSuccess }: OTPModalProps) {
             </div>
           )}
 
-          {/* Feedback messages */}
           {message && (
             <div className={`mt-4 flex items-start gap-2 rounded-2xl p-3 text-xs leading-5 font-semibold ${
               isError

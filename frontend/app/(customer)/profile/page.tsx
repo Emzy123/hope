@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
-import { User, ShieldAlert, Phone, Camera, Bell, AlertCircle, Check } from "lucide-react";
+import { User, ShieldAlert, Mail, Camera, Bell, AlertCircle, Check } from "lucide-react";
 import { updateMyProfile } from "@/lib/api";
 
 export default function CustomerProfileSettings() {
@@ -67,13 +67,13 @@ export default function CustomerProfileSettings() {
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-600 block mb-1">Phone Number (Read-only)</label>
+              <label className="text-[10px] font-bold text-slate-600 block mb-1">Email Address (Read-only)</label>
               <div className="relative">
-                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-350" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-350" />
                 <input
-                  type="text"
+                  type="email"
                   disabled
-                  value={user?.phone || ""}
+                  value={user?.email || ""}
                   className="w-full rounded-xl border border-slate-100 bg-slate-50/50 py-3.5 pl-10 pr-4 text-xs font-semibold text-slate-400 cursor-not-allowed"
                 />
               </div>

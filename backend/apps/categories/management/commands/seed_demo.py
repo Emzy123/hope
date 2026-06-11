@@ -27,23 +27,26 @@ class Command(BaseCommand):
             categories[slug] = category
 
         users = [
-            ("08000000000", "SkillBridge Admin", "admin"),
-            ("08011111111", "Adewale Plumbing Pro", "worker"),
-            ("08022222222", "Zainab Electricals", "worker"),
-            ("08033333333", "Chioma Okafor", "customer"),
-            ("08044444444", "Ibrahim Musa", "customer"),
+            ("admin@demo.skillbridge.ng", "08000000000", "SkillBridge Admin", "admin"),
+            ("adewale@demo.skillbridge.ng", "08011111111", "Adewale Plumbing Pro", "worker"),
+            ("zainab@demo.skillbridge.ng", "08022222222", "Zainab Electricals", "worker"),
+            ("chioma@demo.skillbridge.ng", "08033333333", "Chioma Okafor", "customer"),
+            ("ibrahim@demo.skillbridge.ng", "08044444444", "Ibrahim Musa", "customer"),
         ]
 
         saved_users = {}
-        for phone, full_name, role in users:
-            user = User.objects(phone=phone).first()
+        for email, phone, full_name, role in users:
+            user = User.objects(email=email).first()
             if user is None:
-                user = User(phone=phone, full_name=full_name, role=role, is_verified=True).save()
+                user = User(email=email, phone=phone, full_name=full_name, role=role, is_verified=True)
             else:
+                user.phone = phone
                 user.full_name = full_name
                 user.role = role
                 user.is_verified = True
-                user.save()
+            if role == "admin":
+                user.set_password("demoAdmin1")
+            user.save()
             saved_users[phone] = user
 
         worker_specs = [

@@ -5,9 +5,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 class User(Document):
     ROLE_CHOICES = ("customer", "worker", "admin")
 
-    phone = StringField(required=True, unique=True, max_length=20)
+    email = EmailField(required=True, unique=True)
+    phone = StringField(max_length=20)
     full_name = StringField(max_length=120)
-    email = EmailField()
     role = StringField(required=True, choices=ROLE_CHOICES, default="customer")
     password_hash = StringField()  # only set for admin accounts
     is_active = BooleanField(default=True)
@@ -28,7 +28,11 @@ class User(Document):
 
     meta = {
         "collection": "users",
-        "indexes": ["phone", "role", "email"],
+        "indexes": [
+            "email",
+            {"fields": ["phone"], "sparse": True},
+            "role",
+        ],
     }
 
     def save(self, *args, **kwargs):
@@ -38,11 +42,11 @@ class User(Document):
 
 class OTPCode(Document):
     """
-    Stores pending OTP codes. Keyed by email (primary) with phone as extra context.
+    Stores pending OTP codes keyed by email.
     MongoDB TTL index auto-deletes expired documents.
     """
-    email = EmailField(required=True)
-    phone = StringField(max_length=20)       # kept for backwards compat / audit
+    email = EmailField()
+    phone = StringField(max_length=20)
     code = StringField(required=True, max_length=6)
     attempts = IntField(default=0)
     expires_at = DateTimeField(required=True)
@@ -58,8 +62,11 @@ class OTPCode(Document):
     }
 
     @classmethod
-    def create_code(cls, email, code, phone=None):
-        cls.objects(email=email).delete()
+    def create_code(cls, email=None, code=None, phone=None):
+        if email:
+            cls.objects(email=email).delete()
+        if phone:
+            cls.objects(phone=phone).delete()
         return cls(
             email=email,
             phone=phone or "",

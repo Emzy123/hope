@@ -11,7 +11,6 @@ export default function VerifyPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [role, setRole] = useState("customer");
   const [fullName, setFullName] = useState("");
   
@@ -27,7 +26,6 @@ export default function VerifyPage() {
 
   useEffect(() => {
     const tempEmail = localStorage.getItem("sb_temp_email");
-    const tempPhone = localStorage.getItem("sb_temp_phone") || "";
     const tempRole = localStorage.getItem("sb_temp_role");
     const tempName = localStorage.getItem("sb_temp_name");
 
@@ -35,7 +33,6 @@ export default function VerifyPage() {
       router.replace("/login");
     } else {
       setEmail(tempEmail);
-      setPhone(tempPhone);
       setRole(tempRole || "customer");
       setFullName(tempName || "");
       setCooldown(60);
@@ -127,10 +124,11 @@ export default function VerifyPage() {
     setSuccessMsg("");
 
     try {
-      const res = await verifyOtp(email, code, fullName || undefined, role || undefined, phone || undefined);
+      const res = await verifyOtp(email, code, fullName || undefined, role || undefined);
       
       const loggedUser = {
         id: res.user.id,
+        email: res.user.email,
         phone: res.user.phone,
         full_name: res.user.full_name || fullName || "Demo User",
         role: res.user.role || role,
@@ -140,7 +138,6 @@ export default function VerifyPage() {
       setSuccessMsg("Successfully verified!");
       
       localStorage.removeItem("sb_temp_email");
-      localStorage.removeItem("sb_temp_phone");
       localStorage.removeItem("sb_temp_role");
       localStorage.removeItem("sb_temp_name");
 
@@ -167,18 +164,12 @@ export default function VerifyPage() {
     setErrorMsg("");
     setSuccessMsg("");
     try {
-      const res = await requestOtp(email, phone || undefined);
+      const res = await requestOtp(email);
       setSuccessMsg(res.dev_otp ? `Code Resent! Dev Code: ${res.dev_otp}` : `Code resent to ${email}`);
       setCooldown(60);
     } catch {
       setErrorMsg("Resend failed. Try again.");
     }
-  };
-
-  const maskEmail = (e: string) => {
-    if (!e) return "";
-    const [user, domain] = e.split("@");
-    return `${user.slice(0, 2)}***@${domain}`;
   };
 
   return (

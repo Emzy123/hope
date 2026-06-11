@@ -6,7 +6,8 @@ import { getMe, logoutUser, type User } from "@/lib/api";
 
 type AuthUser = {
   id: string;
-  phone: string;
+  email: string;
+  phone?: string | null;
   full_name: string;
   role: string;
   is_onboarded: boolean;
@@ -34,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data && data.user) {
         const logged = {
           id: data.user.id,
+          email: data.user.email,
           phone: data.user.phone,
           full_name: data.user.full_name,
           role: data.user.role,

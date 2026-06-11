@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { adminLogin, requestAdminPasswordReset, confirmAdminPasswordReset } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
-import { Shield, KeyRound, Phone, ArrowRight, AlertTriangle, Sparkles, CheckCircle2, Lock, ArrowLeft } from "lucide-react";
+import { Shield, KeyRound, Mail, ArrowRight, AlertTriangle, Sparkles, CheckCircle2, Lock, ArrowLeft } from "lucide-react";
 
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const { login } = useAuth();
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,12 +22,10 @@ export default function AdminLoginPage() {
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  const cleanPhone = (val: string) => val.replace(/\D/g, "").slice(0, 11);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 10) {
-      setError("Please enter a valid Nigerian phone number.");
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
     if (!password) {
@@ -40,11 +38,12 @@ export default function AdminLoginPage() {
     setSuccess("");
 
     try {
-      const res = await adminLogin(phone, password);
+      const res = await adminLogin(email, password);
       setSuccess("Authentication successful! Loading Operations Control...");
       setTimeout(() => {
         login({
           id: res.user.id,
+          email: res.user.email,
           phone: res.user.phone,
           full_name: res.user.full_name,
           role: res.user.role,
@@ -53,7 +52,7 @@ export default function AdminLoginPage() {
       }, 1000);
     } catch (err: any) {
       setError(
-        err?.message || "Invalid admin credentials. Please verify your phone and password."
+        err?.message || "Invalid admin credentials. Please verify your email and password."
       );
     } finally {
       setLoading(false);
@@ -62,19 +61,19 @@ export default function AdminLoginPage() {
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 10) {
-      setError("Please enter a valid Nigerian phone number.");
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
     setLoading(true);
     setError("");
     setSuccess("");
     try {
-      const res = await requestAdminPasswordReset(phone);
-      setSuccess(res.dev_otp ? `Verification code sent! (dev code: ${res.dev_otp})` : "Verification code sent to your registered phone.");
+      const res = await requestAdminPasswordReset(email);
+      setSuccess(res.dev_otp ? `Verification code sent! (dev code: ${res.dev_otp})` : "Verification code sent to your registered email.");
       setResetStep(2);
     } catch (err: any) {
-      setError(err?.message || "Failed to send reset code. Verify your phone number.");
+      setError(err?.message || "Failed to send reset code. Verify your email address.");
     } finally {
       setLoading(false);
     }
@@ -94,12 +93,13 @@ export default function AdminLoginPage() {
     setError("");
     setSuccess("");
     try {
-      await confirmAdminPasswordReset(phone, resetCode, newPassword);
+      await confirmAdminPasswordReset(email, resetCode, newPassword);
       setSuccess("Password updated successfully! Logging you in...");
-      const res = await adminLogin(phone, newPassword);
+      const res = await adminLogin(email, newPassword);
       setTimeout(() => {
         login({
           id: res.user.id,
+          email: res.user.email,
           phone: res.user.phone,
           full_name: res.user.full_name,
           role: res.user.role,
@@ -209,7 +209,7 @@ export default function AdminLoginPage() {
                   Administrative Login
                 </h1>
                 <p className="text-sm text-slate-400 font-medium mt-1.5">
-                  Provide phone and password credentials to proceed.
+                  Provide email and password credentials to proceed.
                 </p>
               </div>
 
@@ -229,26 +229,21 @@ export default function AdminLoginPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Phone input */}
+                {/* Email input */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">Phone Number</label>
+                  <label className="text-xs font-bold text-slate-300 block">Email Address</label>
                   <div className="relative flex items-center">
-                    <div className="absolute left-0 flex items-center h-full pl-4">
-                      <span className="text-xs font-black text-slate-500 border-r border-slate-800 pr-3">+234</span>
-                    </div>
                     <input
-                      id="admin-phone-input"
-                      type="tel"
-                      inputMode="numeric"
-                      value={phone}
-                      onChange={(e) => setPhone(cleanPhone(e.target.value))}
-                      placeholder="080 1234 5678"
-                      maxLength={11}
+                      id="admin-email-input"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@skillbridge.ng"
                       required
                       disabled={loading}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-900 py-4 pl-16 pr-4 text-sm font-semibold text-white placeholder:text-slate-600 outline-none focus:border-[#f5a623] focus:ring-2 focus:ring-[#f5a623]/10 transition-all disabled:opacity-55"
+                      className="w-full rounded-xl border border-slate-800 bg-slate-900 py-4 pl-4 pr-12 text-sm font-semibold text-white placeholder:text-slate-600 outline-none focus:border-[#f5a623] focus:ring-2 focus:ring-[#f5a623]/10 transition-all disabled:opacity-55"
                     />
-                    <Phone className="absolute right-4 h-4.5 w-4.5 text-slate-600" />
+                    <Mail className="absolute right-4 h-4.5 w-4.5 text-slate-600" />
                   </div>
                 </div>
 
@@ -314,8 +309,8 @@ export default function AdminLoginPage() {
                 </h1>
                 <p className="text-sm text-slate-400 font-medium mt-1.5">
                   {resetStep === 1
-                    ? "Enter your registered administrator phone number to request a reset code."
-                    : "Enter the code sent to your phone and specify a new secure password."}
+                    ? "Enter your registered administrator email address to request a reset code."
+                    : "Enter the code sent to your email and specify a new secure password."}
                 </p>
               </div>
 
@@ -337,29 +332,24 @@ export default function AdminLoginPage() {
               {resetStep === 1 ? (
                 <form onSubmit={handleRequestReset} className="space-y-5">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300 block">Phone Number</label>
+                    <label className="text-xs font-bold text-slate-300 block">Email Address</label>
                     <div className="relative flex items-center">
-                      <div className="absolute left-0 flex items-center h-full pl-4">
-                        <span className="text-xs font-black text-slate-500 border-r border-slate-800 pr-3">+234</span>
-                      </div>
                       <input
-                        type="tel"
-                        inputMode="numeric"
-                        value={phone}
-                        onChange={(e) => setPhone(cleanPhone(e.target.value))}
-                        placeholder="080 1234 5678"
-                        maxLength={11}
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="admin@skillbridge.ng"
                         required
                         disabled={loading}
-                        className="w-full rounded-xl border border-slate-800 bg-slate-900 py-4 pl-16 pr-4 text-sm font-semibold text-white placeholder:text-slate-600 outline-none focus:border-[#f5a623] focus:ring-2 focus:ring-[#f5a623]/10 transition-all disabled:opacity-55"
+                        className="w-full rounded-xl border border-slate-800 bg-slate-900 py-4 pl-4 pr-12 text-sm font-semibold text-white placeholder:text-slate-600 outline-none focus:border-[#f5a623] focus:ring-2 focus:ring-[#f5a623]/10 transition-all disabled:opacity-55"
                       />
-                      <Phone className="absolute right-4 h-4.5 w-4.5 text-slate-600" />
+                      <Mail className="absolute right-4 h-4.5 w-4.5 text-slate-600" />
                     </div>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={loading || phone.length < 10}
+                    disabled={loading || !email}
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#f5a623] text-slate-950 py-4 px-4 text-sm font-black transition-all hover:bg-[#e0931b] hover:shadow-lg hover:shadow-[#f5a623]/15 active:scale-[0.98] disabled:opacity-55"
                   >
                     {loading ? "Sending Code..." : "Send Verification Code"}
@@ -433,7 +423,7 @@ export default function AdminLoginPage() {
               className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
             >
               <KeyRound className="h-3.5 w-3.5" />
-              Sign in with mobile OTP code instead
+              Sign in with email OTP code instead
             </Link>
           </div>
         </div>
