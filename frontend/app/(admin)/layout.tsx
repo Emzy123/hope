@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
-import { Sparkles, Shield, UserCheck, ClipboardList, AlertTriangle, LayoutGrid, Settings, LogOut, ArrowLeft, Menu, Users, FileText } from "lucide-react";
+import { Sparkle, Shield, UserCheck, ClipboardList, AlertTriangle, LayoutGrid, Settings, LogOut, ArrowLeft, Menu, Users, FileText } from "lucide-react";
 import { useState } from "react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -44,7 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5">
             <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white shadow-md shadow-primary/15">
-              <Sparkles className="h-5 w-5 text-accent" />
+              <Sparkle className="h-5 w-5 text-accent fill-accent" />
             </span>
             <div>
               <span className="text-lg font-black tracking-tight text-primary">SkillBridge</span>
@@ -103,7 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className="lg:hidden flex items-center justify-between px-6 py-4 bg-white border-b border-slate-100">
           <Link href="/" className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white">
-              <Sparkles className="h-4 w-4 text-accent" />
+              <Sparkle className="h-4 w-4 text-accent fill-accent" />
             </span>
             <span className="text-sm font-black tracking-tight text-primary">SkillBridge Admin</span>
           </Link>

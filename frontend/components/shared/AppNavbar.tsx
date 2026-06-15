@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { usePathname } from "next/navigation";
 import { toggleWorkerAvailability, getMyWorkerProfile, API_BASE_URL } from "@/lib/api";
 import {
-  Sparkles, LogOut, Search, User, Shield, Briefcase,
+  Sparkle, LogOut, Search, User, Shield, Briefcase,
   Calendar, Bell, Menu, X, ChevronDown, BookOpen, Home,
   UserPlus, Settings
 } from "lucide-react";
@@ -164,7 +164,7 @@ export function AppNavbar() {
         {/* ── Brand ── */}
         <Link href="/" className="flex items-center gap-2.5 group shrink-0">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#1a5c38] to-[#0f3d26] text-white shadow-md shadow-primary/25 group-hover:scale-105 transition-transform">
-            <Sparkles className="h-4.5 w-4.5 text-amber-400" />
+            <Sparkle className="h-4.5 w-4.5 text-amber-400 fill-amber-400" />
           </span>
           <div className="leading-none">
             <span className="text-base font-black tracking-tight text-slate-900 block">SkillBridge</span>

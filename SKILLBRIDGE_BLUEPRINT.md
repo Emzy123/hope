@@ -38,7 +38,7 @@ Every technology choice below is optimised for three constraints: solo developer
 | Frontend Hosting | Vercel | Native Next.js host, global CDN, zero config | Free |
 | Media Storage | Cloudinary | 25GB free tier, image transforms for worker photos | Free |
 | Payments | Paystack | Nigerian market leader, great API, test mode for demo | Free (test) |
-| OTP / SMS | Termii | Nigerian provider, free trial credits | Free trial |
+| SMS Alerts | Termii | Nigerian provider, free trial credits | Free trial |
 | Real-time | Django Channels | WebSockets for chat + status updates, in-memory for demo | Free |
 | Auth | SimpleJWT | Proven JWT library, HTTP-only cookie support | Free |
 | Maps | Leaflet.js | Open-source maps, no API key required | Free |
@@ -67,7 +67,7 @@ The platform uses a decoupled architecture: Django provides the REST API and bus
 | Media CDN | Cloudinary | Worker portfolio photos, profile pictures, ID documents |
 | Payment Gateway | Paystack | Transaction initiation, webhook callbacks, escrow logic |
 | WebSocket Server | Django Channels (in-memory) | Real-time chat, live booking status updates |
-| SMS Gateway | Termii | OTP delivery for phone-based authentication |
+| SMS Gateway | Termii | Booking and escrow alerts to phone numbers |
 
 
 **Django App Structure**
@@ -89,7 +89,7 @@ The Django project is split into 9 focused apps, each owning a distinct domain:
 
 **DATA MODELS — FULL SCHEMA**
 **Design Principles**
-- ✓ Phone number is the primary identifier — not email. African users trust SMS-based auth more and it eliminates fake account creation.
+- ✓ Email is the primary auth identifier — not phone number. Passwordless Email OTP eliminates credential theft vectors. Phone numbers are verified during onboarding for SMS alerts.
 - ✓ All monetary values stored in the smallest unit (kobo for NGN) to avoid floating-point rounding errors in payment calculations.
 - ✓ Portfolio images are embedded inside WorkerProfile (always read together). Bookings and Payments are separate documents (queried independently by status, date, user).
 - ✓ The Booking document is the central entity — all other documents reference it. The booking FSM is the core business logic of the entire platform.
@@ -194,7 +194,7 @@ The Django project is split into 9 focused apps, each owning a distinct domain:
 
 | Method | Endpoint | Auth | Description |
 | --- | --- | --- | --- |
-| POST | /api/v1/auth/request-otp/ | Public | Send OTP to phone number via Termii |
+| POST | /api/v1/auth/request-otp/ | Public | Send OTP to email address via Brevo |
 | POST | /api/v1/auth/verify-otp/ | Public | Verify OTP, return JWT access + refresh tokens |
 | POST | /api/v1/auth/refresh/ | Public | Refresh JWT access token using refresh token |
 | POST | /api/v1/auth/logout/ | Any user | Blacklist refresh token, clear cookies |
@@ -294,10 +294,10 @@ The platform is built in 12 phases, each with a clear deliverable. Phases 1–5 
 
 
 - ✓ Custom mongoengine User backend replacing Django's default auth system
-- ✓ POST /api/v1/auth/request-otp/: validates Nigerian phone format, stores hashed OTP in MongoDB with 10-min TTL, sends via Termii
+- ✓ POST /api/v1/auth/request-otp/: validates email format, stores hashed OTP in MongoDB with 10-min TTL, sends via Brevo SMTP
 - ✓ POST /api/v1/auth/verify-otp/: checks code, creates User if new, returns JWT access (15min) + refresh (30 days) in HTTP-only cookies
 - ✓ Three DRF permission classes: IsCustomer, IsWorker, IsAdmin — used as decorators on every protected view
-- ✓ Rate limiting: max 5 OTP requests per phone per hour — tracked via a counter document in MongoDB
+- ✓ Rate limiting: max 5 OTP requests per email per hour — tracked via a counter document in MongoDB
 - ✓ Dev mode: OTP printed to Django console. Hardcoded test number 08000000000 always accepts code 123456
 - – *Real SMS delivery to your own number — save Termii trial credits for demo day*
 
@@ -546,7 +546,7 @@ These 8 security measures are implemented in the MVP. Each is documented in the 
 | Next.js Frontend | Vercel | 100GB bandwidth, unlimited deploys | Bandwidth (unlikely for student project) |
 | MongoDB | Atlas M0 | 512MB storage, shared cluster | Storage limit or cluster sleeping |
 | Media Storage | Cloudinary | 25GB storage, 25 credits/month | Monthly transformation credits |
-| SMS (OTP) | Termii | Free trial credits (~50 SMS) | Trial credits exhausted |
+| SMS Alerts | Termii | Free trial credits (~50 SMS) | Trial credits exhausted |
 
 
 **Auto-Deploy Pipeline**

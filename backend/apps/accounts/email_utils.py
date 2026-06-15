@@ -1,32 +1,21 @@
 """
-email_utils.py — Brevo (Sendinblue) transactional email dispatcher for OTP.
+email_utils.py — Django SMTP email dispatcher for OTP.
 
-Uses Brevo's free SMTP or API to deliver OTP codes via email.
-Completely free up to 300 emails/day.
+Uses Django's core mail system to send transactional emails via SMTP (or Console in dev).
 """
 
 import logging
-import requests
 from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
 
 logger = logging.getLogger(__name__)
-
-BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 def send_otp_email(to_email: str, code: str, full_name: str = "there") -> bool:
     """
-    Send an OTP code to the given email address via Brevo.
+    Send an OTP code to the given email address via SMTP.
     Returns True on success, False on failure.
     """
-    api_key = getattr(settings, "BREVO_API_KEY", "")
-    sender_email = getattr(settings, "BREVO_SENDER_EMAIL", "noreply@skillbridge.ng")
-    sender_name = getattr(settings, "BREVO_SENDER_NAME", "SkillBridge")
-
-    if not api_key:
-        logger.warning("BREVO_API_KEY is not configured — email OTP not sent.")
-        return False
-
     html_body = f"""
     <!DOCTYPE html>
     <html>
@@ -75,33 +64,21 @@ def send_otp_email(to_email: str, code: str, full_name: str = "there") -> bool:
     </html>
     """
 
-    payload = {
-        "sender": {"name": sender_name, "email": sender_email},
-        "to": [{"email": to_email}],
-        "subject": f"{code} is your SkillBridge verification code",
-        "htmlContent": html_body,
-    }
+    subject = f"{code} is your SkillBridge verification code"
+    text_content = f"Hi {full_name},\n\nYour SkillBridge verification code is: {code}\n\nIt expires in 10 minutes. Do not share this code with anyone."
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@skillbridge.ng")
 
     try:
-        response = requests.post(
-            BREVO_API_URL,
-            json=payload,
-            headers={
-                "accept": "application/json",
-                "api-key": api_key,
-                "content-type": "application/json",
-            },
-            timeout=10,
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=from_email,
+            to=[to_email]
         )
-        if response.status_code in (200, 201):
-            logger.info("OTP email sent to %s via Brevo.", to_email)
-            return True
-
-        logger.error(
-            "Brevo rejected OTP email to %s: %s — %s",
-            to_email, response.status_code, response.text[:200],
-        )
-        return False
-    except requests.RequestException as exc:
-        logger.error("Brevo email request failed: %s", exc)
+        msg.attach_alternative(html_body, "text/html")
+        msg.send(fail_silently=False)
+        logger.info("OTP email sent to %s successfully.", to_email)
+        return True
+    except Exception as exc:
+        logger.error("Failed to send OTP email to %s: %s", to_email, exc)
         return False

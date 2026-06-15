@@ -6,6 +6,7 @@ from common_serializers import document_to_dict
 from workers.models import WorkerProfile
 from categories.models import Category
 from bookings.models import Booking
+from payments.models import Payment
 from auth_utils import require_auth, get_request_user
 from admin_panel.models import log_admin_action
 
@@ -76,6 +77,19 @@ def my_worker_profile(request):
         if not profile:
             return JsonResponse({"detail": "Worker profile not found. Complete onboarding."}, status=404)
 
+        # Calculate real stats
+        completed_jobs = Booking.objects(worker=profile, status="done").count()
+        
+        # Completed this week
+        from datetime import datetime, timedelta
+        one_week_ago = datetime.utcnow() - timedelta(days=7)
+        completed_this_week = Booking.objects(worker=profile, status="done", updated_at__gte=one_week_ago).count()
+        
+        # Net payouts (released escrow amounts for completed bookings)
+        worker_bookings = Booking.objects(worker=profile)
+        payments = Payment.objects(booking__in=worker_bookings, status="success", escrow_released=True)
+        net_payouts = sum(float(p.worker_amount or 0) for p in payments)
+
         data = {
             "id": str(profile.id),
             "full_name": user.full_name,
@@ -94,6 +108,9 @@ def my_worker_profile(request):
                 for c in (profile.categories or [])
                 if c is not None
             ],
+            "completed_jobs": completed_jobs,
+            "completed_this_week": completed_this_week,
+            "net_payouts": net_payouts,
         }
         return JsonResponse({"profile": data})
 

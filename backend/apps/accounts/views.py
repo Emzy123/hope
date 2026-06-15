@@ -61,21 +61,22 @@ def request_otp(request):
     if existing and (datetime.utcnow() - existing.created_at).total_seconds() < 60:
         return JsonResponse({"detail": "Please wait 60 seconds before requesting a new code."}, status=429)
 
-    code = "123456" if settings.DEBUG else f"{secrets.randbelow(1000000):06d}"
+    # Always generate a random 6-digit OTP code to match live/production behavior
+    code = f"{secrets.randbelow(1000000):06d}"
     existing_user = User.objects(email=email).first()
     display_name = (existing_user.full_name if existing_user else "") or data.get("full_name", "") or "there"
     OTPCode.create_code(email=email, code=code)
 
-    if not settings.DEBUG:
-        import logging
-        _log = logging.getLogger(__name__)
-        try:
-            from accounts.email_utils import send_otp_email
-            ok = send_otp_email(email, code, full_name=str(display_name))
-            if not ok:
-                _log.error("OTP email delivery failed for %s via Brevo.", email)
-        except Exception as exc:
-            _log.error("OTP email exception for %s: %s", email, exc)
+    # Always attempt to send OTP email so it can be dispatched via SMTP (or logged to console in dev)
+    import logging
+    _log = logging.getLogger(__name__)
+    try:
+        from accounts.email_utils import send_otp_email
+        ok = send_otp_email(email, code, full_name=str(display_name))
+        if not ok:
+            _log.error("OTP email delivery failed for %s.", email)
+    except Exception as exc:
+        _log.error("OTP email exception for %s: %s", email, exc)
 
     response = {"detail": "OTP sent."}
     if settings.DEBUG:
@@ -186,7 +187,9 @@ def auth_me(request):
                 user.full_name = name
 
         if "email" in data:
-            user.email = str(data["email"]).strip() or None
+            email_val = str(data["email"]).strip()
+            if email_val:
+                user.email = email_val
 
         if "is_onboarded" in data:
             is_onboarded = bool(data["is_onboarded"])
@@ -205,8 +208,11 @@ def auth_me(request):
 def admin_login(request):
     """
     Password-based login exclusively for admin accounts.
-    Accepts: { email, password }
+    Accepts: { email, password, secret_phrase }
     Returns JWT cookies identical to verify_otp on success.
+    All three fields are required; the secret_phrase is validated
+    against the ADMIN_SECRET_PHRASE environment variable using
+    constant-time comparison to prevent timing attacks.
     """
     if request.method != "POST":
         return JsonResponse({"detail": "Method not allowed."}, status=405)
@@ -214,14 +220,27 @@ def admin_login(request):
     data = request_data(request)
     email = str(data.get("email") or "").strip().lower()
     password = str(data.get("password") or "").strip()
+    secret_phrase = str(data.get("secret_phrase") or "").strip()
 
     if not email or not EMAIL_RE.match(email):
         return JsonResponse({"detail": "A valid email address is required."}, status=400)
     if not password:
         return JsonResponse({"detail": "Email and password are required."}, status=400)
+    if not secret_phrase:
+        return JsonResponse({"detail": "The admin secret phrase is required."}, status=400)
+
+    # Validate the secret phrase using constant-time comparison
+    expected_phrase = getattr(settings, "ADMIN_SECRET_PHRASE", "")
+    phrase_valid = bool(expected_phrase) and secrets.compare_digest(
+        secret_phrase.encode("utf-8"),
+        expected_phrase.encode("utf-8"),
+    )
 
     user = User.objects(email=email, role="admin").first()
-    if not user or not user.check_password(password):
+    credentials_valid = bool(user and user.check_password(password))
+
+    # Intentionally combine checks so we don't leak which field is wrong
+    if not phrase_valid or not credentials_valid:
         return JsonResponse({"detail": "Invalid credentials."}, status=401)
 
     if not user.is_active:
@@ -275,19 +294,20 @@ def admin_reset_password_request(request):
     if existing and (datetime.utcnow() - existing.created_at).total_seconds() < 60:
         return JsonResponse({"detail": "Please wait 60 seconds before requesting a new verification code."}, status=429)
 
-    code = "123456" if settings.DEBUG else f"{random.randint(100000, 999999)}"
+    # Always generate a random 6-digit OTP code to match live/production behavior
+    code = f"{random.randint(100000, 999999)}"
     OTPCode.create_code(email=email, code=code)
 
-    if not settings.DEBUG:
-        import logging
-        _log = logging.getLogger(__name__)
-        try:
-            from accounts.email_utils import send_otp_email
-            ok = send_otp_email(email, code, full_name=user.full_name or "Administrator")
-            if not ok:
-                _log.error("Admin reset OTP email delivery failed for %s via Brevo.", email)
-        except Exception as exc:
-            _log.error("Admin reset OTP email exception for %s: %s", email, exc)
+    # Always attempt to send OTP email so it can be dispatched via SMTP (or logged to console in dev)
+    import logging
+    _log = logging.getLogger(__name__)
+    try:
+        from accounts.email_utils import send_otp_email
+        ok = send_otp_email(email, code, full_name=user.full_name or "Administrator")
+        if not ok:
+            _log.error("Admin reset OTP email delivery failed for %s.", email)
+    except Exception as exc:
+        _log.error("Admin reset OTP email exception for %s: %s", email, exc)
 
     response = {"detail": "Verification code sent to your registered email address."}
     if settings.DEBUG:

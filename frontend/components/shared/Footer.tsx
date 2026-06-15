@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, Mail, Phone, MapPin, Twitter, Instagram, Linkedin, Facebook } from "lucide-react";
+import { Sparkle, Mail, Phone, MapPin, Twitter, Instagram, Linkedin, Facebook } from "lucide-react";
 
 const SERVICES = ["Plumbing", "Electrical", "Carpentry", "AC Repair", "Cleaning", "Painting", "Tailoring", "Catering", "Welding", "Tiling"];
 const CITIES = ["Lagos", "Abuja", "Port Harcourt", "Ibadan", "Kano", "Enugu", "Benin City"];
@@ -13,7 +13,7 @@ export function Footer() {
         <div className="space-y-4 lg:col-span-1">
           <Link href="/" className="flex items-center gap-2.5 group w-fit">
             <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[#0f3d26] shadow-lg group-hover:scale-105 transition-transform">
-              <Sparkles className="h-5 w-5 text-amber-400" />
+              <Sparkle className="h-5 w-5 text-amber-400 fill-amber-400" />
             </span>
             <span className="text-xl font-black tracking-tight">SkillBridge</span>
           </Link>

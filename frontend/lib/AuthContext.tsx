@@ -69,6 +69,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshSession();
   }, []);
 
+  // Scroll to top on pathname changes to prevent the window staying scrolled down or automatic scroll issues
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname]);
+
   // Sync role redirections securely
   useEffect(() => {
     if (loading) return;

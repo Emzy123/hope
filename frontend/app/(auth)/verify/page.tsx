@@ -165,7 +165,7 @@ export default function VerifyPage() {
     setSuccessMsg("");
     try {
       const res = await requestOtp(email);
-      setSuccessMsg(res.dev_otp ? `Code Resent! Dev Code: ${res.dev_otp}` : `Code resent to ${email}`);
+      setSuccessMsg(`Code resent to ${email}`);
       setCooldown(60);
     } catch {
       setErrorMsg("Resend failed. Try again.");

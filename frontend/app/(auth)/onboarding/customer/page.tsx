@@ -25,8 +25,13 @@ export default function CustomerOnboarding() {
   const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    if (user && user.full_name) {
-      setFullName(user.full_name);
+    if (user) {
+      if (user.full_name) {
+        setFullName(user.full_name);
+      }
+      if (user.email) {
+        setEmail(user.email);
+      }
     }
   }, [user]);
 
@@ -195,13 +200,12 @@ export default function CustomerOnboarding() {
           {/* Step 2 Form */}
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-bold text-slate-600 block mb-1">Email Address (Optional)</label>
+              <label className="text-[10px] font-bold text-slate-600 block mb-1">Email Address</label>
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. chioma@example.com"
-                className="w-full rounded-xl border border-slate-200 py-3.5 px-4 text-xs font-semibold outline-none focus:border-primary transition-colors bg-white"
+                disabled
+                className="w-full rounded-xl border border-slate-200 py-3.5 px-4 text-xs font-semibold outline-none focus:border-primary transition-colors bg-slate-50 text-slate-500 cursor-not-allowed"
               />
             </div>
 

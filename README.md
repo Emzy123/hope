@@ -39,7 +39,7 @@ SkillBridge is a production-ready, full-stack service marketplace platform built
 | **Icons** | Lucide React | Consistent icon set across all portals |
 | **Auth** | SimpleJWT + HTTP-only cookies | XSS-safe JWT session management |
 | **Payments** | Paystack | Escrow-based checkout; HMAC-SHA512 webhook verification |
-| **SMS / OTP** | Termii | Live OTP delivery + booking/escrow event notifications |
+| **SMS Alerts** | Termii | Live SMS alerts for booking/escrow events (OTP is email-based via Brevo) |
 | **Backend Hosting** | Railway.app | Auto-deploys from GitHub |
 | **Frontend Hosting** | Vercel | Global CDN; native Next.js optimisations |
 
@@ -54,7 +54,8 @@ Browser (Next.js App Router — Vercel)
 Django API (Railway)
        ├── mongoengine ODM ──▶ MongoDB Atlas
        ├── Paystack API ──────▶ Escrow / Webhooks
-       └── Termii SMS API ────▶ OTP + Notifications
+       ├── Brevo Email API ───▶ Email OTP Login
+       └── Termii SMS API ────▶ Booking/Escrow SMS Alerts
 ```
 
 ---
@@ -63,7 +64,7 @@ Django API (Railway)
 
 | App | Responsibility |
 |---|---|
-| `accounts` | Phone OTP auth, JWT sessions, user CRUD, admin password login |
+| `accounts` | Email OTP auth, JWT sessions, user CRUD, admin password login |
 | `workers` | Worker profiles, availability toggle, city/category metadata |
 | `categories` | Service category tree; admin CRUD |
 | `bookings` | Booking FSM (pending → accepted → in_progress → completed_by_worker → done / disputed / cancelled / expired) |
@@ -80,7 +81,7 @@ Django API (Railway)
 | Control | Implementation |
 |---|---|
 | HTTP-only JWT cookies | Tokens never exposed to JS; XSS-safe |
-| OTP throttle | 60 s cooldown + 5-attempt lockout per phone |
+| OTP throttle | 60 s cooldown + 5-attempt lockout per email |
 | OTP expiry | Codes expire after 10 minutes |
 | Webhook HMAC | Paystack `x-paystack-signature` validated with HMAC-SHA512 |
 | RBAC decorators | `@require_auth("customer" | "worker" | "admin")` on every protected view |
@@ -94,7 +95,7 @@ Django API (Railway)
 ## 🎯 Feature Matrix
 
 ### Customer Portal
-- [x] Phone OTP registration & login
+- [x] Email OTP registration & login
 - [x] Browse & search workers by category, city, rating
 - [x] Worker public profile with live reviews & star ratings
 - [x] Booking form with scheduled date & quoted amount
@@ -196,7 +197,7 @@ npm run dev
 ### Auth — `/api/v1/auth/`
 | Method | Path | Description |
 |---|---|---|
-| POST | `request-otp/` | Send OTP to phone |
+| POST | `request-otp/` | Send OTP to email |
 | POST | `verify-otp/` | Verify OTP → issue JWT cookies |
 | POST | `logout/` | Clear JWT cookies |
 | GET/PATCH | `me/` | Get or update current user |
@@ -256,8 +257,8 @@ npm run dev
 
 ## 💡 Key Design Decisions
 
-### Phone-First Auth
-In Nigeria, mobile numbers are the primary digital identity. OTP-based login eliminates fake email registrations and matches user trust patterns in the informal sector.
+### Email OTP Auth with Phone Profiling
+The MVP uses secure, passwordless Email OTP verification (integrated with Brevo SMTP) to eliminate password theft vectors. Users supply their phone numbers during onboarding, which are validated for Nigerian formats and utilized by the Termii SMS gateway to dispatch real-time alerts for booking and escrow payment events.
 
 ### Escrow Payment Model
 Customers pay upfront; funds are held by Paystack until the customer marks the job `done`. This eliminates both "customer refuses to pay" and "worker abandons job" failure modes. The platform takes a configurable commission (default 12%) at release time.

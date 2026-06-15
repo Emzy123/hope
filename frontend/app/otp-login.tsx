@@ -5,9 +5,9 @@ import { requestOtp, verifyOtp } from "@/lib/api";
 
 export function OtpLogin() {
   const [email, setEmail] = useState("chioma@demo.skillbridge.ng");
-  const [code, setCode] = useState("123456");
+  const [code, setCode] = useState("");
   const [fullName, setFullName] = useState("Demo Customer");
-  const [message, setMessage] = useState("Use seeded demo OTP 123456 in development.");
+  const [message, setMessage] = useState("Check your console or email for the OTP code.");
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleRequestOtp(event: FormEvent<HTMLFormElement>) {
@@ -15,7 +15,7 @@ export function OtpLogin() {
     setIsLoading(true);
     try {
       const result = await requestOtp(email);
-      setMessage(result.dev_otp ? `${result.detail} Dev OTP: ${result.dev_otp}` : result.detail);
+      setMessage(result.detail);
     } catch {
       setMessage("Could not request OTP. Confirm the backend server is running.");
     } finally {

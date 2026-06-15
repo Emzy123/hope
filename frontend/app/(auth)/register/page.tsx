@@ -39,7 +39,7 @@ function RegisterContent() {
       localStorage.setItem("sb_temp_email", email);
       localStorage.setItem("sb_temp_name", fullName.trim());
       localStorage.setItem("sb_temp_role", role);
-      setSuccess(res.dev_otp ? `OTP sent! (dev: ${res.dev_otp})` : `Verification code sent to ${email}`);
+      setSuccess(`Verification code sent to ${email}`);
       setTimeout(() => router.push("/verify"), 1000);
     } catch {
       setError("Could not send OTP. Please check your email and try again.");

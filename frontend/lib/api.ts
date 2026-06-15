@@ -1,4 +1,4 @@
-let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 if (baseUrl && !baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
   baseUrl = `https://${baseUrl}`;
 }
@@ -178,10 +178,10 @@ export async function logoutUser() {
   });
 }
 
-export async function adminLogin(email: string, password: string) {
+export async function adminLogin(email: string, password: string, secretPhrase: string) {
   return apiFetch<{ user: User }>("/api/v1/auth/admin-login/", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, secret_phrase: secretPhrase }),
   });
 }
 
@@ -189,6 +189,13 @@ export async function initiatePayment(bookingId: string, callbackUrl?: string) {
   return apiFetch<{ authorization_url: string; paystack_reference: string; is_mock: boolean }>("/api/v1/payments/initiate/", {
     method: "POST",
     body: JSON.stringify({ booking_id: bookingId, callback_url: callbackUrl }),
+  });
+}
+
+export async function verifyPayment(reference: string) {
+  return apiFetch<{ status: string; booking_status: string; payment_status: string; already_verified?: boolean }>("/api/v1/payments/verify/", {
+    method: "POST",
+    body: JSON.stringify({ reference }),
   });
 }
 

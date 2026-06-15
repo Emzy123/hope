@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getWorkers, createBooking, initiatePayment, simulatePaymentSuccess, type Worker } from "@/lib/api";
+import { getWorkers, createBooking, initiatePayment, type Worker } from "@/lib/api";
 import { Calendar as CalendarIcon, MapPin, Wrench, ShieldCheck, CreditCard, ChevronLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
+import LiveMap from "@/components/shared/LiveMap";
 
 export default function BookWorker({ params }: { params: { workerId: string } }) {
   const router = useRouter();
@@ -71,8 +72,8 @@ export default function BookWorker({ params }: { params: { workerId: string } })
 
     try {
       const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}:00`);
-      
-      // Save booking in real backend
+
+      // 1. Create the booking record
       const bookingRes = await createBooking({
         workerId: worker.id,
         scheduledFor: scheduledDateTime.toISOString(),
@@ -83,29 +84,19 @@ export default function BookWorker({ params }: { params: { workerId: string } })
 
       const bookingId = bookingRes.booking.id;
 
-      // Initiate payment
-      const paymentRes = await initiatePayment(bookingId);
+      // 2. Build the callback URL Paystack will redirect to after payment
+      const callbackUrl = `${window.location.origin}/book/payment-success?booking_id=${bookingId}`;
 
-      if (paymentRes.is_mock) {
-        // Automatically simulate success in mock/sandbox environment
-        await simulatePaymentSuccess(bookingId, paymentRes.paystack_reference);
+      // 3. Initialize payment with Paystack
+      const paymentRes = await initiatePayment(bookingId, callbackUrl);
 
-        // Confetti splash
-        confetti({
-          particleCount: 150,
-          spread: 80,
-          origin: { y: 0.6 },
-          colors: ["#1a5c38", "#f5a623", "#16a34a", "#3b82f6"]
-        });
+      // 4. Redirect to Paystack checkout (works for both real and test keys)
+      window.location.href = paymentRes.authorization_url;
 
-        setStep(4);
-      } else {
-        // Redirect browser to Paystack checkout page
-        window.location.href = paymentRes.authorization_url;
-      }
     } catch (err: any) {
-      setErrorMsg("Failed to initiate secure escrow hold. Ensure you are signed in.");
-    } finally {
+      setErrorMsg(
+        err?.message || "Failed to initiate payment. Please ensure you are signed in and try again."
+      );
       setIsPaying(false);
     }
   };
@@ -157,17 +148,7 @@ export default function BookWorker({ params }: { params: { workerId: string } })
 
             <div>
               <label className="text-[10px] font-bold text-slate-600 block mb-1">Job Location Address</label>
-              <div className="relative">
-                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="e.g. 12 Adeola St, Victoria Island, Lagos"
-                  className="w-full rounded-xl border border-slate-200 py-3.5 pl-10 pr-4 text-xs font-semibold outline-none focus:border-primary"
-                />
-              </div>
+              <LiveMap address={address} onAddressChange={setAddress} />
             </div>
           </div>
 

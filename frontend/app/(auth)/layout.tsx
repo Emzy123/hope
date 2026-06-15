@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Sparkle } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +18,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <header className="px-6 py-4 flex justify-between items-center bg-white border-b border-slate-100/50">
         <Link href="/" className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
-            <Sparkles className="h-4.5 w-4.5 text-accent" />
+            <Sparkle className="h-4.5 w-4.5 text-accent fill-accent" />
           </span>
           <span className="text-base font-black tracking-tight text-primary">SkillBridge</span>
         </Link>

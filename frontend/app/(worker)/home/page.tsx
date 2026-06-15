@@ -30,14 +30,27 @@ export default function WorkerHome() {
   const [chatBooking, setChatBooking] = useState<Booking | null>(null);
   const [isApproved, setIsApproved] = useState<boolean | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [greeting, setGreeting] = useState("Welcome back");
 
   // Self-Branding States (stored in localStorage for high-fidelity persistence)
   const [tagline, setTagline] = useState("");
   const [title, setTitle] = useState("");
   const [themeId, setThemeId] = useState("emerald");
-  const [selectedBadges, setSelectedBadges] = useState<string[]>(["KYC Verified", "5-Star Rated"]);
+  const [selectedBadges, setSelectedBadges] = useState<string[]>(["KYC Verified"]);
   const [specialty, setSpecialty] = useState("Plumbing");
   const [isEditingBranding, setIsEditingBranding] = useState(false);
+
+  // --- Profile Stats State ---
+  const [profileStats, setProfileStats] = useState({
+    netPayouts: 0,
+    completedJobs: 0,
+    completedThisWeek: 0,
+    ratingAvg: 0.0,
+    ratingCount: 0
+  });
+  const [hourlyRate, setHourlyRate] = useState(0);
+  const [city, setCity] = useState("Lagos");
+  const [stateName, setStateName] = useState("Lagos");
 
   const activeTheme = PRESETS.find(p => p.id === themeId) || PRESETS[0];
 
@@ -50,15 +63,15 @@ export default function WorkerHome() {
         setTagline(parsed.tagline || "");
         setTitle(parsed.title || "");
         setThemeId(parsed.themeId || "emerald");
-        setSelectedBadges(parsed.selectedBadges || ["KYC Verified", "5-Star Rated"]);
+        setSelectedBadges(parsed.selectedBadges || ["KYC Verified"]);
         setSpecialty(parsed.specialty || "Plumbing");
       } catch {
         // Fallback to default
       }
     } else {
       // Default initial states based on role/seeding
-      setTitle("Master Services Specialist");
-      setTagline("Top-rated artisan delivering top quality fixes across Nigeria.");
+      setTitle("Professional Tradesman");
+      setTagline("Providing reliable artisan services tailored to your needs.");
       setSpecialty("Plumbing");
     }
   }, [user]);
@@ -98,6 +111,15 @@ export default function WorkerHome() {
 
   useEffect(() => {
     fetchWorkerData();
+    // Set time-aware greeting
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      setGreeting("Good morning");
+    } else if (hour < 17) {
+      setGreeting("Good afternoon");
+    } else {
+      setGreeting("Good evening");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -109,6 +131,26 @@ export default function WorkerHome() {
         if (res && res.profile) {
           setIsAvailable(res.profile.is_available);
           setIsApproved(res.profile.is_approved);
+          setHourlyRate(res.profile.hourly_rate || 0);
+          setCity(res.profile.city || "Lagos");
+          setStateName(res.profile.state || "Lagos");
+          
+          const stats = {
+            netPayouts: res.profile.net_payouts || 0,
+            completedJobs: res.profile.completed_jobs || 0,
+            completedThisWeek: res.profile.completed_this_week || 0,
+            ratingAvg: res.profile.rating_avg || 0,
+            ratingCount: res.profile.rating_count || 0
+          };
+          setProfileStats(stats);
+
+          if (stats.ratingCount === 0 || stats.ratingAvg < 4.5) {
+            setSelectedBadges(prev => prev.filter(b => b !== "5-Star Rated"));
+          }
+
+          if (res.profile.categories && res.profile.categories.length > 0) {
+            setSpecialty(res.profile.categories[0].name);
+          }
         }
       } catch {
         setErrorMsg("Failed to synchronize worker profile data.");
@@ -197,7 +239,7 @@ export default function WorkerHome() {
               Executive Workspace
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-none">
-              Welcome back, {user?.full_name?.split(" ")[0]}
+              {greeting}, {user?.full_name?.split(" ")[0]} 👋
             </h1>
             <p className="text-xs font-semibold text-white/80 max-w-md">
               Core Trade Specialty: <span className="text-amber-400 font-black">{specialty}</span> • Manage availability, gigs and self-branding below.
@@ -256,12 +298,30 @@ export default function WorkerHome() {
       {/* ── ANALYTICS CARDS GRID ── */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         {[
-          { label: "Net Payouts", val: "₦22,500", icon: Wallet, desc: "Seeded test balance", highlight: "text-emerald-500" },
-          { label: "Completed Jobs", val: "37", icon: ShieldCheck, desc: "+2 this week", highlight: "text-blue-500" },
-          { label: "Avg Star Rating", val: "★ 4.8", icon: Star, desc: "Based on 37 reviews", highlight: "text-amber-500" },
+          { 
+            label: "Net Payouts", 
+            val: `₦${profileStats.netPayouts.toLocaleString()}`, 
+            icon: Wallet, 
+            desc: profileStats.netPayouts === 0 ? "No earnings yet" : "Earned payouts", 
+            highlight: "text-emerald-500" 
+          },
+          { 
+            label: "Completed Jobs", 
+            val: String(profileStats.completedJobs), 
+            icon: ShieldCheck, 
+            desc: `+${profileStats.completedThisWeek} this week`, 
+            highlight: "text-blue-500" 
+          },
+          { 
+            label: "Avg Star Rating", 
+            val: profileStats.ratingCount === 0 ? "★ N/A" : `★ ${profileStats.ratingAvg.toFixed(1)}`, 
+            icon: Star, 
+            desc: profileStats.ratingCount === 0 ? "No reviews yet" : `Based on ${profileStats.ratingCount} reviews`, 
+            highlight: "text-amber-500" 
+          },
           { 
             label: "Platform Standing", 
-            val: isApproved === null ? "Loading..." : isApproved ? "Elite" : "Under Review", 
+            val: isApproved === null ? "Loading..." : isApproved ? (profileStats.completedJobs >= 10 ? "Elite" : "Standard") : "Under Review", 
             icon: Award, 
             desc: isApproved === null ? "Verifying status" : isApproved ? "NIN KYC Verified" : "Verification Pending", 
             highlight: isApproved ? "text-purple-500" : "text-amber-500" 
@@ -451,7 +511,7 @@ export default function WorkerHome() {
                     </span>
                   </div>
                   <span className="flex items-center gap-0.5 text-amber-500 text-xs font-black">
-                    ★ 4.8
+                    {profileStats.ratingCount === 0 ? "★ N/A" : `★ ${profileStats.ratingAvg.toFixed(1)}`}
                   </span>
                 </div>
 
@@ -475,10 +535,10 @@ export default function WorkerHome() {
                 <div className="border-t border-slate-50 pt-3 flex justify-between items-center text-[10px] font-black uppercase tracking-wider text-slate-500">
                   <span className="flex items-center gap-0.5">
                     <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                    Lekki, Lagos
+                    {city}, {stateName}
                   </span>
                   <span className="text-slate-800">
-                    ₦6,500/hr
+                    ₦{Number(hourlyRate).toLocaleString()}/hr
                   </span>
                 </div>
               </div>
@@ -565,7 +625,7 @@ export default function WorkerHome() {
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 block uppercase">Highlight trust badges</label>
                   <div className="flex flex-wrap gap-1">
-                    {["KYC Verified", "5-Star Rated", "Paystack Secured", "Emergency Pro"].map((badge, bIdx) => {
+                    {["KYC Verified", "Paystack Secured", "Emergency Pro", ...(profileStats.ratingAvg >= 4.5 && profileStats.ratingCount > 0 ? ["5-Star Rated"] : [])].map((badge, bIdx) => {
                       const active = selectedBadges.includes(badge);
                       return (
                         <button

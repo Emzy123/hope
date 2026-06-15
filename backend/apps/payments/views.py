@@ -51,8 +51,13 @@ def initiate_payment(request):
     amount_in_kobo = int(booking.quoted_amount * 100)
 
     if is_mock:
-        # Mock payment authorization url
-        authorization_url = f"http://localhost:3000/payment/mock-checkout?reference={reference}&amount={booking.quoted_amount}"
+        # In dev/mock mode: build a real-looking callback URL and return it.
+        # The frontend will redirect the user there; the verify endpoint
+        # will then auto-confirm the payment since we're in mock mode.
+        callback_url = data.get("callback_url") or f"http://localhost:3000/book/payment-success?booking_id={str(booking.id)}"
+        # Append the reference so the callback page can verify it
+        separator = "&" if "?" in callback_url else "?"
+        authorization_url = f"{callback_url}{separator}reference={reference}"
         payment = Payment(
             booking=booking,
             paystack_reference=reference,
@@ -177,6 +182,122 @@ def simulate_success(request):
         "status": "success",
         "booking_status": booking.status,
         "payment_status": booking.payment_status
+    })
+
+
+@csrf_exempt
+@require_auth("customer")
+def verify_payment(request):
+    """
+    POST /api/v1/payments/verify/
+    Body: { reference }
+    Called by the frontend callback page after Paystack redirects back.
+    Verifies the transaction with Paystack and confirms the booking.
+    """
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed."}, status=405)
+
+    user = request.skillbridge_user
+
+    if request.content_type == "application/json":
+        try:
+            data = json.loads(request.body or "{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"detail": "Invalid JSON."}, status=400)
+    else:
+        data = request.POST
+
+    reference = str(data.get("reference") or "").strip()
+    if not reference:
+        return JsonResponse({"detail": "reference is required."}, status=400)
+
+    payment = Payment.objects(paystack_reference=reference).first()
+    if not payment:
+        return JsonResponse({"detail": "Payment record not found."}, status=404)
+
+    booking = payment.booking
+    if not booking:
+        return JsonResponse({"detail": "Booking not found."}, status=404)
+
+    # Verify ownership
+    if str(booking.customer.id) != str(user.id):
+        return JsonResponse({"detail": "Permission denied."}, status=403)
+
+    # If already marked successful (e.g. webhook already processed it), return success
+    if payment.status == "success":
+        return JsonResponse({
+            "status": "success",
+            "booking_status": booking.status,
+            "payment_status": booking.payment_status,
+            "already_verified": True,
+        })
+
+    paystack_key = getattr(settings, "PAYSTACK_SECRET_KEY", "sk_test_sample")
+    is_mock = paystack_key == "sk_test_sample"
+
+    if is_mock:
+        # In mock mode, just confirm the payment directly
+        booking.status = "accepted"
+        booking.payment_status = "escrowed"
+        booking.save()
+        payment.status = "success"
+        payment.save()
+    else:
+        # Verify with Paystack API
+        try:
+            verify_url = f"https://api.paystack.co/transaction/verify/{reference}"
+            headers = {"Authorization": f"Bearer {paystack_key}"}
+            resp = requests.get(verify_url, headers=headers, timeout=15)
+            res_data = resp.json()
+
+            if not resp.ok or not res_data.get("status"):
+                return JsonResponse({"detail": "Could not verify payment with Paystack."}, status=400)
+
+            tx_data = res_data.get("data", {})
+            tx_status = tx_data.get("status")
+
+            if tx_status != "success":
+                return JsonResponse({
+                    "detail": f"Payment not completed. Paystack status: {tx_status}",
+                    "paystack_status": tx_status,
+                }, status=400)
+
+            # Confirm payment
+            booking.status = "accepted"
+            booking.payment_status = "escrowed"
+            booking.save()
+            payment.status = "success"
+            payment.save()
+
+        except Exception as e:
+            return JsonResponse({"detail": f"Error verifying with Paystack: {str(e)}"}, status=500)
+
+    # Send in-app notification
+    try:
+        from notifications.models import Notification
+        Notification(
+            user=booking.worker.user,
+            title="New Booking Request",
+            body=f"You have a new paid booking request from {user.full_name}."
+        ).save()
+    except Exception:
+        pass
+
+    # Send SMS to worker
+    try:
+        from accounts.sms_utils import send_notification_sms
+        send_notification_sms(
+            booking.worker.user.phone,
+            "New Paid Booking",
+            f"A customer has paid and booked your service. Job: {booking.job_description[:60]}. Log in to SkillBridge to respond."
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({
+        "status": "success",
+        "booking_status": booking.status,
+        "payment_status": booking.payment_status,
     })
 
 

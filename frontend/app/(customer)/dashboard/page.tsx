@@ -17,6 +17,7 @@ export default function CustomerDashboard() {
   const [errorMsg, setErrorMsg] = useState("");
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
   const [chatBooking, setChatBooking] = useState<Booking | null>(null);
+  const [greeting, setGreeting] = useState("Welcome");
 
   const fetchDashboardBookings = async () => {
     setErrorMsg("");
@@ -50,6 +51,16 @@ export default function CustomerDashboard() {
     fetchDashboardBookings();
     if (sessionStorage.getItem("sb_new_customer") === "true") {
       setShowWelcomeBanner(true);
+    }
+
+    // Set greeting based on client-side time of day
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      setGreeting("Good morning");
+    } else if (hour < 17) {
+      setGreeting("Good afternoon");
+    } else {
+      setGreeting("Good evening");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -131,7 +142,7 @@ export default function CustomerDashboard() {
             Nigeria&apos;s Premium Informal Market
           </span>
           <h1 className="text-xl md:text-2xl font-black text-slate-800">
-            Good morning, {user?.full_name?.split(" ")[0]} 👋
+            {greeting}, {user?.full_name?.split(" ")[0]} 👋
           </h1>
           <p className="text-xs font-semibold text-slate-500">
             You have {activeBookings.length} active service bookings underway.
