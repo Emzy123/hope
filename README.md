@@ -9,21 +9,21 @@ SkillBridge is a production-ready, full-stack service marketplace platform built
 
 | Surface | URL |
 |---|---|
-| **Frontend (Vercel)** | `https://skillbridge-frontend.vercel.app` |
-| **Backend API (Railway)** | `https://skillbridge-backend.up.railway.app` |
+| **Frontend (Render)** | `https://skillbridge-frontend.onrender.com` |
+| **Backend API (Render)** | `https://skillbridge-backend.onrender.com` |
 | **API Health Check** | `GET /api/v1/health/` |
 
 ### 🔑 Demo Credentials
 
-> OTP bypass is active in DEBUG mode — use `123456` as the code for any phone below.
+> OTP bypass is active in DEBUG mode — use `123456` as the code for any email below.
 
-| Role | Phone | OTP | Notes |
+| Role | Email | OTP | Notes |
 |---|---|---|---|
-| **Admin** | `08000000000` | `123456` | Full operations centre access |
-| **Worker — Plumber** | `08011111111` | `123456` | Lagos, approved, top-rated |
-| **Worker — Electrician** | `08022222222` | `123456` | Abuja, approved |
-| **Customer 1** | `08033333333` | `123456` | Has past bookings |
-| **Customer 2** | `08044444444` | `123456` | New account |
+| **Admin** | `admin@skillbridge.ng` | `123456` | Full operations centre access (requires ADMIN_SECRET_PHRASE) |
+| **Worker — Plumber** | `plumber@skillbridge.ng` | `123456` | Lagos, approved, top-rated |
+| **Worker — Electrician** | `electrician@skillbridge.ng` | `123456` | Abuja, approved |
+| **Customer 1** | `customer1@skillbridge.ng` | `123456` | Has past bookings |
+| **Customer 2** | `customer2@skillbridge.ng` | `123456` | New account |
 
 ---
 
@@ -31,31 +31,35 @@ SkillBridge is a production-ready, full-stack service marketplace platform built
 
 | Layer | Technology | Notes |
 |---|---|---|
-| **Backend Framework** | Django 5 | Pure Django views (no DRF serializers) for lean, auditable API |
-| **ODM / DB Layer** | mongoengine 0.29 | Document-Object Mapper for MongoDB |
+| **Backend Framework** | Django 5 + DRF | Django REST Framework for API with JWT authentication |
+| **ODM / DB Layer** | mongoengine 0.28 | Document-Object Mapper for MongoDB |
 | **Database** | MongoDB Atlas (M0) | Flexible schema; free 512 MB cluster |
-| **Frontend** | Next.js 14 App Router | SSR + Client Components; deployed to Vercel |
-| **Styling** | Vanilla CSS + Tailwind CSS | Utility-first, zero runtime cost |
+| **Frontend** | Next.js 14 App Router | SSR + Client Components; deployed to Render |
+| **Styling** | Tailwind CSS | Utility-first CSS framework |
 | **Icons** | Lucide React | Consistent icon set across all portals |
 | **Auth** | SimpleJWT + HTTP-only cookies | XSS-safe JWT session management |
 | **Payments** | Paystack | Escrow-based checkout; HMAC-SHA512 webhook verification |
-| **SMS Alerts** | Termii | Live SMS alerts for booking/escrow events (OTP is email-based via Brevo) |
-| **Backend Hosting** | Railway.app | Auto-deploys from GitHub |
-| **Frontend Hosting** | Vercel | Global CDN; native Next.js optimisations |
+| **SMS Alerts** | Termii | Live SMS alerts for booking/escrow events (OTP is email-based via SMTP) |
+| **Media Storage** | Cloudinary | CDN-based image/avatar uploads |
+| **Real-time** | Django Channels + Redis | WebSocket support for future real-time features |
+| **Backend Hosting** | Render.com | Auto-deploys from GitHub (render.yaml) |
+| **Frontend Hosting** | Render.com | Global CDN; native Next.js optimisations |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-Browser (Next.js App Router — Vercel)
+Browser (Next.js App Router — Render)
        │  JSON over HTTPS + HTTP-only JWT cookies
        ▼
-Django API (Railway)
+Django API (Render)
        ├── mongoengine ODM ──▶ MongoDB Atlas
        ├── Paystack API ──────▶ Escrow / Webhooks
-       ├── Brevo Email API ───▶ Email OTP Login
-       └── Termii SMS API ────▶ Booking/Escrow SMS Alerts
+       ├── SMTP Email ────────▶ Email OTP Login
+       ├── Termii SMS API ────▶ Booking/Escrow SMS Alerts
+       ├── Cloudinary ────────▶ Media/Avatar Storage
+       └── Django Channels ──▶ Redis (WebSocket support)
 ```
 
 ---
@@ -64,7 +68,7 @@ Django API (Railway)
 
 | App | Responsibility |
 |---|---|
-| `accounts` | Email OTP auth, JWT sessions, user CRUD, admin password login |
+| `accounts` | Email OTP auth, JWT sessions, user CRUD, admin secret phrase login |
 | `workers` | Worker profiles, availability toggle, city/category metadata |
 | `categories` | Service category tree; admin CRUD |
 | `bookings` | Booking FSM (pending → accepted → in_progress → completed_by_worker → done / disputed / cancelled / expired) |
@@ -85,6 +89,7 @@ Django API (Railway)
 | OTP expiry | Codes expire after 10 minutes |
 | Webhook HMAC | Paystack `x-paystack-signature` validated with HMAC-SHA512 |
 | RBAC decorators | `@require_auth("customer" | "worker" | "admin")` on every protected view |
+| Admin secret phrase | Additional security layer for admin login (ADMIN_SECRET_PHRASE) |
 | Booking FSM | Transitions validated server-side; clients cannot set arbitrary statuses |
 | Worker concurrency cap | Workers limited to 3 concurrent active jobs; auto-flagged unavailable |
 | Admin audit log | Every admin action (approval, arbitration, settings change) recorded immutably |
@@ -137,6 +142,8 @@ Django API (Railway)
 - MongoDB Atlas account (free M0 cluster)
 - Termii account (for live SMS; dev uses `123456` bypass)
 - Paystack account (test keys work locally)
+- Cloudinary account (for media/avatar uploads)
+- Redis (optional, for Django Channels WebSocket support)
 
 ### Backend
 
@@ -151,14 +158,14 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements.txt
 
 # 4. Configure environment variables
-cp backend/.env.example backend/.env
-# → Fill in MONGODB_URI, TERMII_API_KEY, PAYSTACK_SECRET_KEY, SECRET_KEY
+cp .env.example .env
+# → Fill in MONGODB_URI, TERMII_API_KEY, PAYSTACK_SECRET_KEY, SECRET_KEY, ADMIN_SECRET_PHRASE, Cloudinary creds
 
 # 5. Seed demo data
 cd backend && python manage.py seed_demo
 
 # 6. Run the API server
-python manage.py runserver
+cd backend && python manage.py runserver
 ```
 
 ### Frontend
@@ -183,12 +190,18 @@ npm run dev
 |---|---|
 | `MONGODB_URI` | Full Atlas connection string |
 | `SECRET_KEY` | Django secret key (generate with `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`) |
+| `ADMIN_SECRET_PHRASE` | Secret phrase required for admin login in addition to credentials |
 | `DEBUG` | `True` for dev (enables OTP bypass + mock payments) |
 | `PAYSTACK_SECRET_KEY` | `sk_test_…` for dev, `sk_live_…` for production |
 | `TERMII_API_KEY` | Termii API key (dev uses 123456 bypass when DEBUG=True) |
 | `TERMII_SENDER_ID` | SMS sender label (e.g. `SkillBridge`) |
-| `ALLOWED_HOSTS` | Comma-separated allowed domains |
-| `CORS_ALLOWED_ORIGINS` | Frontend origin (e.g. `https://skillbridge-frontend.vercel.app`) |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name for media uploads |
+| `CLOUDINARY_API_KEY` | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret |
+| `DJANGO_ALLOWED_HOSTS` | Comma-separated allowed domains |
+| `CORS_ALLOWED_ORIGINS` | Frontend origin (e.g. `https://skillbridge-frontend.onrender.com`) |
+| `EMAIL_HOST_USER` | SMTP email username (for OTP delivery) |
+| `EMAIL_HOST_PASSWORD` | SMTP email password/app password |
 
 ---
 
@@ -258,7 +271,7 @@ npm run dev
 ## 💡 Key Design Decisions
 
 ### Email OTP Auth with Phone Profiling
-The MVP uses secure, passwordless Email OTP verification (integrated with Brevo SMTP) to eliminate password theft vectors. Users supply their phone numbers during onboarding, which are validated for Nigerian formats and utilized by the Termii SMS gateway to dispatch real-time alerts for booking and escrow payment events.
+The MVP uses secure, passwordless Email OTP verification (integrated with SMTP) to eliminate password theft vectors. Users supply their phone numbers during onboarding, which are validated for Nigerian formats and utilized by the Termii SMS gateway to dispatch real-time alerts for booking and escrow payment events.
 
 ### Escrow Payment Model
 Customers pay upfront; funds are held by Paystack until the customer marks the job `done`. This eliminates both "customer refuses to pay" and "worker abandons job" failure modes. The platform takes a configurable commission (default 12%) at release time.
@@ -267,10 +280,13 @@ Customers pay upfront; funds are held by Paystack until the customer marks the j
 Workers are automatically set inactive once they hold 3 active jobs (`accepted`, `in_progress`, `completed_by_worker`, or `disputed`). They are invisible to new customers until all 3 resolve. This prevents over-commitment and protects service quality.
 
 ### Immutable Audit Log
-Every admin action — worker approvals, dispute arbitrations, settings changes, user status toggles — is written to `AuditLog` in MongoDB. The log is append-only from the application layer and viewable in the Admin portal.
+Every admin action — worker approvals, dispute arbitrations, settings changes, user status toggles — is written to `AuditLog` in MongoDB. The log is append-only from the application layer and viewable in the Admin portal. Admin login requires an additional `ADMIN_SECRET_PHRASE` for enhanced security.
 
 ### Booking Auto-Expiry
 Pending bookings older than 24 hours are automatically transitioned to `expired` on the next GET to the bookings list. No cron job required.
+
+### Media Storage with Cloudinary
+User avatars and other media files are uploaded to Cloudinary CDN for reliable storage and fast delivery across Nigeria and Africa.
 
 ---
 
@@ -279,7 +295,7 @@ Pending bookings older than 24 hours are automatically transitioned to `expired`
 - [ ] **Smile Identity NIN/BVN check** — Automated worker KYC verification
 - [ ] **GPS live tracking** — Real-time worker location when job is `in_progress`
 - [ ] **Push notifications** — FCM/WebPush to replace SMS for in-app events
-- [ ] **WebSockets chat** — Upgrade from REST polling to Django Channels
+- [ ] **WebSockets chat** — Upgrade from REST polling to Django Channels (infrastructure ready with Redis)
 - [ ] **Ghana expansion** — Hubtel SMS + Ghana Card + GHS currency
 - [ ] **Kenya expansion** — Africa's Talking + M-Pesa STK Push + KES currency
 - [ ] **i18n** — Yoruba, Igbo, Hausa, French, Swahili
